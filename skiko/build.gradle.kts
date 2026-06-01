@@ -155,6 +155,9 @@ kotlin {
         skikoProjectContext.configureNativeTarget(OS.Linux, Arch.X64, linuxX64())
         skikoProjectContext.configureNativeTarget(OS.Linux, Arch.Arm64, linuxArm64())
     }
+    if (supportNativeWindows) {
+        mingwX64()
+    }
     if (supportNativeIosArm64) {
         skikoProjectContext.configureNativeTarget(OS.IOS, Arch.Arm64, iosArm64())
     }

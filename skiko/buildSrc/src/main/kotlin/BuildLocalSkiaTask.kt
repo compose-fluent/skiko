@@ -4,8 +4,10 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.*
+import org.gradle.process.ExecOperations
 import java.io.ByteArrayOutputStream
 import java.io.File
+import javax.inject.Inject
 
 abstract class BuildLocalSkiaTask : DefaultTask() {
 
@@ -23,6 +25,9 @@ abstract class BuildLocalSkiaTask : DefaultTask() {
 
     @get:Internal
     abstract val skikoTargetFlags: ListProperty<String>
+
+    @get:Inject
+    abstract val execOperations: ExecOperations
 
     @TaskAction
     fun buildSkia() {
@@ -111,7 +116,7 @@ abstract class BuildLocalSkiaTask : DefaultTask() {
         logger.lifecycle("Running: ${fullCommand.joinToString(" ")}")
 
         val output = ByteArrayOutputStream()
-        val result = project.exec {
+        val result = execOperations.exec {
             workingDir = skiaRepoRoot
             commandLine = fullCommand
             standardOutput = output

@@ -1,0 +1,478 @@
+package org.jetbrains.skiko.winui
+
+import io.github.composefluent.winrt.runtime.EventRegistrationToken
+import microsoft.ui.dispatching.DispatcherQueue
+import microsoft.ui.xaml.FrameworkElement
+import microsoft.ui.xaml.SizeChangedEventHandler
+import microsoft.ui.xaml.Window
+import org.jetbrains.skia.Canvas
+import org.jetbrains.skia.Picture
+import org.jetbrains.skia.PictureRecorder
+import org.jetbrains.skia.PixelGeometry
+import org.jetbrains.skiko.GraphicsApi
+import org.jetbrains.skiko.SkikoRenderDelegate
+
+/**
+ * AWT-free Skiko layer hosted by WinUI.
+ *
+ * V1 is intentionally Direct3D-only and uses a WinUI SwapChainPanel as its platform component.
+ */
+class WinUISkiaLayer(
+    override var renderDelegate: SkikoRenderDelegate? = null,
+) : WinUISkiaLayerSurface {
+    override var inputHandler: WinUIInputHandler? = null
+    override var accessibilityProvider: WinUIAccessibilityProvider? = null
+        set(value) {
+            check(!isDisposed) { "WinUISkiaLayer is disposed" }
+            field = value
+            invalidateAccessibility()
+        }
+
+    internal val dispatcherQueue: DispatcherQueue = DispatcherQueue.getForCurrentThread()
+    private val hostPanel = WinUISkiaHostPanel()
+    private val panel = hostPanel.renderPanel
+    private val platformInterop = WinUISkiaLayerPlatformInterop(this, panel)
+    private val inputInterop = WinUIInputInterop(this, panel)
+    private val accessibilityInterop = WinUIAccessibilityInterop(hostPanel)
+    private val renderDispatcher = WinUIRenderDispatcher(
+        dispatcherQueue = dispatcherQueue,
+        isDisposed = { isDisposed },
+        renderNow = ::renderNow,
+    )
+    private var attachedWindowBinding: WinUISkiaWindowBinding? = null
+    private var standaloneFrameScheduler: WinUIFrameScheduler? = null
+    private var sizeChangedToken: EventRegistrationToken? = null
+    private var compositionScaleChangedToken: EventRegistrationToken? = null
+    private val pictureLock = Any()
+    private val pictureRecorder = PictureRecorder()
+    private var picture: WinUIPictureHolder? = null
+    private var drawScope: WinUILayerDrawScope? = null
+    private var lastRenderedState: WinUILayerRenderState? = null
+    private var lastInvalidatedState: WinUILayerRenderState? = null
+    private var lastPlatformResult: WinUIPlatformRenderResult? = null
+    private var lastRenderFailure: WinUILayerRenderFailure? = null
+    private var renderVersion = 0L
+    private var isDisposed = false
+
+    override var accessibilityInfo: WinUIAccessibilityInfo = WinUIAccessibilityInfo()
+        set(value) {
+            check(!isDisposed) { "WinUISkiaLayer is disposed" }
+            field = value
+            accessibilityInterop.update(value)
+        }
+
+    override val accessibilitySnapshot: WinUIAccessibilitySnapshot?
+        get() = accessibilityInterop.snapshot
+
+    override val accessibilityDiagnostics: WinUIAccessibilityDiagnostics
+        get() = accessibilityInterop.currentDiagnostics
+
+    internal val accessibilityChangeVersion: Long
+        get() = accessibilityInterop.version
+
+    init {
+        hostPanel.bindLayer(this)
+        sizeChangedToken = panel.sizeChanged.add(SizeChangedEventHandler { _, _ ->
+            invalidateRender()
+        })
+        compositionScaleChangedToken = panel.compositionScaleChanged.add { _, _ ->
+            invalidateRender()
+        }
+        hostPanel.isTabStop = true
+        panel.isTabStop = true
+        accessibilityInterop.update(accessibilityInfo)
+    }
+
+    override val component: FrameworkElement
+        get() = hostPanel
+
+    override var renderApi: GraphicsApi
+        get() = GraphicsApi.DIRECT3D
+        set(value) {
+            if (value != GraphicsApi.DIRECT3D) {
+                throw UnsupportedOperationException("WinUISkiaLayer supports only ${GraphicsApi.DIRECT3D}.")
+            }
+        }
+
+    override val contentScale: Float
+        get() = maxOf(panel.compositionScaleX, panel.compositionScaleY)
+
+    override val pixelGeometry: PixelGeometry
+        get() = PixelGeometry.UNKNOWN
+
+    override var fullscreen: Boolean
+        get() = true
+        set(_) {
+            throw UnsupportedOperationException("WinUISkiaLayer fullscreen mode is owned by the WinUI host.")
+        }
+
+    override val width: Float
+        get() = hostPanel.actualWidth.toFloat()
+
+    override val height: Float
+        get() = hostPanel.actualHeight.toFloat()
+
+    override val focusState: WinUIFocusState
+        get() = panel.focusState.toWinUIFocusState()
+
+    override fun attachTo(container: Any) {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        val window = container as? Window
+            ?: throw IllegalArgumentException(
+                "WinUISkiaLayer.attachTo expects a Microsoft.UI.Xaml.Window, got ${container::class.qualifiedName}."
+            )
+        detach()
+        attachedWindowBinding = window.hostWinUISkiaLayer(
+            layer = this,
+            closeLayerOnWindowClosed = false,
+        )
+    }
+
+    override fun detach() {
+        attachedWindowBinding?.close()
+        attachedWindowBinding = null
+        standaloneFrameScheduler?.close()
+        standaloneFrameScheduler = null
+    }
+
+    override fun requestFocus(focusState: WinUIFocusState): Boolean {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        return focusState.toFocusState()?.let(panel::focus) ?: false
+    }
+
+    override fun startFrameScheduler(): WinUIFrameScheduler {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        return attachedWindowBinding?.startFrameScheduler()
+            ?: (standaloneFrameScheduler ?: WinUIFrameScheduler(this, dispatcherQueue = dispatcherQueue).also { scheduler ->
+                standaloneFrameScheduler = scheduler
+            }).also { scheduler ->
+                scheduler.start()
+            }
+    }
+
+    override fun needRender(throttledToVsync: Boolean) {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        renderDispatcher.needRender(throttledToVsync)
+    }
+
+    override fun updateTextInputState(
+        text: String,
+        selection: WinUITextRange,
+        compositionRange: WinUITextRange,
+    ) {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        inputInterop.updateTextInputState(text, selection, compositionRange)
+    }
+
+    override fun updateTextInputLayout(bounds: WinUITextLayoutBounds) {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        inputInterop.updateTextInputLayout(bounds)
+    }
+
+    override fun notifyTextInputLayoutChanged() {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        inputInterop.notifyTextInputLayoutChanged()
+    }
+
+    override fun invalidateAccessibility() {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        val previousSnapshot = accessibilityInterop.snapshot
+        val snapshot = accessibilityProvider?.snapshot()
+        accessibilityInterop.updateSnapshot(
+            snapshot = snapshot,
+            changes = WinUIAccessibilityDiff.changes(
+                oldSnapshot = previousSnapshot,
+                newSnapshot = snapshot,
+            ),
+        )
+    }
+
+    override fun notifyAccessibilityChanged(change: WinUIAccessibilityChange) {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        accessibilityInterop.updateSnapshot(
+            snapshot = accessibilityProvider?.snapshot(),
+            change = change,
+        )
+    }
+
+    override fun accessibilityRootNode(): WinUIAccessibilityNode? {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        return accessibilityInterop.rootNode()
+    }
+
+    override fun accessibilityNode(nodeId: Long): WinUIAccessibilityNode? {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        return accessibilityInterop.findNode(nodeId)
+    }
+
+    override fun accessibilityParent(nodeId: Long): WinUIAccessibilityNode? {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        return accessibilityInterop.parentOf(nodeId)
+    }
+
+    override fun accessibilityChildren(nodeId: Long): List<WinUIAccessibilityNode> {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        return accessibilityInterop.childrenOf(nodeId)
+    }
+
+    override fun accessibilityNodeAt(x: Float, y: Float): WinUIAccessibilityNode? {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        return accessibilityInterop.hitTest(x, y)
+    }
+
+    override fun accessibilityFocusedNode(): WinUIAccessibilityNode? {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        return accessibilityInterop.focusedNode()
+    }
+
+    override fun moveAccessibilityFocus(direction: WinUIAccessibilityFocusDirection): Boolean {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        val target = accessibilityInterop.focusTarget(direction) ?: return false
+        return requestAccessibilityFocus(target.id)
+    }
+
+    override fun requestAccessibilityFocus(nodeId: Long): Boolean {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        val target = accessibilityInterop.findNode(nodeId) ?: return false
+        if (!target.state.enabled || !target.state.focusable) {
+            return false
+        }
+        val handled = performAccessibilityAction(nodeId, WinUIAccessibilityAction.FOCUS)
+        if (handled) {
+            notifyAccessibilityChanged(
+                WinUIAccessibilityChange(
+                    type = WinUIAccessibilityChangeType.FOCUS_CHANGED,
+                    nodeId = nodeId,
+                )
+            )
+        }
+        return handled
+    }
+
+    override fun performAccessibilityAction(
+        nodeId: Long,
+        action: WinUIAccessibilityAction,
+        text: String?,
+    ): Boolean {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        return accessibilityProvider?.performAction(
+            WinUIAccessibilityActionRequest(
+                nodeId = nodeId,
+                action = action,
+                text = text,
+            )
+        ) == true
+    }
+
+    internal fun consumeAccessibilityChanges(afterVersion: Long): WinUIAccessibilityChanges =
+        accessibilityInterop.consumeChanges(afterVersion)
+
+    internal val accessibilityAutomationModel: WinUIAccessibilityAutomationModel
+        get() = accessibilityInterop.automationModel { request ->
+            accessibilityProvider?.performAction(request) == true
+        }
+
+    internal val automationPeerCreateCount: Int
+        get() = hostPanel.automationPeerCreateCount
+
+    internal val renderDiagnostics: WinUILayerRenderDiagnostics
+        get() = WinUILayerRenderDiagnostics(
+            renderVersion = renderVersion,
+            lastRenderedState = lastRenderedState,
+            pendingInvalidatedState = lastInvalidatedState,
+            lastPlatformResult = lastPlatformResult,
+            lastFailure = lastRenderFailure,
+        )
+
+    private fun invalidateRender() {
+        if (!isDisposed && shouldInvalidateRender()) {
+            renderDispatcher.scheduleRender(throttledToVsync = false)
+        }
+    }
+
+    private fun shouldInvalidateRender(): Boolean {
+        val state = currentRenderState() ?: return false
+        if (state == lastRenderedState || state == lastInvalidatedState) {
+            return false
+        }
+        lastInvalidatedState = state
+        return true
+    }
+
+    @Deprecated(
+        message = "Use needRender() instead",
+        replaceWith = ReplaceWith("needRender()"),
+    )
+    override fun needRedraw() {
+        needRender()
+    }
+
+    internal fun draw(canvas: Canvas) {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        check(drawScope != null) { "WinUISkiaLayer.draw() is only valid inside native render." }
+        lockPicture { holder ->
+            canvas.drawPicture(holder.picture)
+        }
+    }
+
+    internal fun update(nanoTime: Long) {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        val scope = drawScope ?: throw IllegalStateException("WinUISkiaLayer.update() is only valid inside native render.")
+        val pictureWidth = scope.width.toFloat().coerceAtLeast(0f)
+        val pictureHeight = scope.height.toFloat().coerceAtLeast(0f)
+        val canvas = pictureRecorder.beginRecording(0f, 0f, pictureWidth, pictureHeight).apply {
+            clear(0x00000000)
+        }
+        renderDelegate?.onRender(
+            canvas = canvas,
+            width = scope.width,
+            height = scope.height,
+            nanoTime = nanoTime,
+        )
+        if (!isDisposed && !pictureRecorder.isClosed) {
+            winuiSynchronized(pictureLock) {
+                picture?.picture?.close()
+                picture = WinUIPictureHolder(
+                    picture = pictureRecorder.finishRecordingAsPicture(),
+                    width = scope.width,
+                    height = scope.height,
+                )
+            }
+        }
+    }
+
+    internal inline fun inDrawScope(
+        width: Int,
+        height: Int,
+        contentScale: Float,
+        nanoTime: Long,
+        block: () -> Unit,
+    ) {
+        check(!isDisposed) { "WinUISkiaLayer is disposed" }
+        val previous = drawScope
+        drawScope = WinUILayerDrawScope(
+            width = width,
+            height = height,
+            contentScale = contentScale,
+            nanoTime = nanoTime,
+        )
+        try {
+            block()
+        } finally {
+            drawScope = previous
+        }
+    }
+
+    override fun dispose() {
+        close()
+    }
+
+    override fun close() {
+        if (isDisposed) {
+            return
+        }
+        detach()
+        isDisposed = true
+        sizeChangedToken?.let(panel.sizeChanged::remove)
+        sizeChangedToken = null
+        compositionScaleChangedToken?.let(panel.compositionScaleChanged::remove)
+        compositionScaleChangedToken = null
+        inputInterop.close()
+        accessibilityInterop.close()
+        renderDispatcher.close()
+        platformInterop.close()
+        winuiSynchronized(pictureLock) {
+            picture?.picture?.close()
+            picture = null
+        }
+        lastRenderedState = null
+        lastInvalidatedState = null
+        lastPlatformResult = null
+        lastRenderFailure = null
+        renderVersion = 0L
+        pictureRecorder.close()
+    }
+
+    private fun renderNow(throttledToVsync: Boolean) {
+        val state = currentRenderState() ?: return
+        val platformResult = try {
+            platformInterop.render(
+                width = state.scaledWidth,
+                height = state.scaledHeight,
+                contentScale = state.contentScale,
+                throttledToVsync = throttledToVsync,
+            )
+        } catch (throwable: Throwable) {
+            lastRenderFailure = throwable.toRenderFailure(
+                state = state,
+                throttledToVsync = throttledToVsync,
+                renderVersion = renderVersion,
+            )
+            throw throwable
+        }
+        lastPlatformResult = platformResult
+        lastRenderedState = state
+        lastRenderFailure = null
+        renderVersion += 1
+        if (lastInvalidatedState == state) {
+            lastInvalidatedState = null
+        }
+    }
+
+    private fun currentRenderState(): WinUILayerRenderState? {
+        val scale = contentScale
+        val logicalWidth = hostPanel.actualWidth.toFloat()
+        val logicalHeight = hostPanel.actualHeight.toFloat()
+        val scaledWidth = (logicalWidth * scale).toInt()
+        val scaledHeight = (logicalHeight * scale).toInt()
+        if (scaledWidth <= 0 || scaledHeight <= 0) {
+            return null
+        }
+        return WinUILayerRenderState(
+            logicalWidth = logicalWidth,
+            logicalHeight = logicalHeight,
+            scaledWidth = scaledWidth,
+            scaledHeight = scaledHeight,
+            contentScale = scale,
+        )
+    }
+
+    private fun <T : Any> lockPicture(action: (WinUIPictureHolder) -> T): T? =
+        winuiSynchronized(pictureLock) {
+            picture?.let(action)
+        }
+
+    private fun Throwable.toRenderFailure(
+        state: WinUILayerRenderState,
+        throttledToVsync: Boolean,
+        renderVersion: Long,
+    ): WinUILayerRenderFailure =
+        WinUILayerRenderFailure(
+            state = state,
+            throttledToVsync = throttledToVsync,
+            renderVersion = renderVersion,
+            exceptionClass = this::class.qualifiedName ?: this::class.simpleName ?: "Throwable",
+            message = message,
+            causeClass = cause?.let { it::class.qualifiedName ?: it::class.simpleName ?: "Throwable" },
+            causeMessage = cause?.message,
+        )
+}
+
+internal class WinUILayerDrawScope(
+    val width: Int,
+    val height: Int,
+    val contentScale: Float,
+    val nanoTime: Long,
+) {
+    val logicalWidth: Int
+        get() = (width / contentScale).toInt()
+
+    val logicalHeight: Int
+        get() = (height / contentScale).toInt()
+}
+
+private class WinUIPictureHolder(
+    val picture: Picture,
+    val width: Int,
+    val height: Int,
+)

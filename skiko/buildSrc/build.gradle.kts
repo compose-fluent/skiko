@@ -2,6 +2,10 @@ plugins {
     `kotlin-dsl`
 }
 
+configurations.configureEach {
+    resolutionStrategy.force("com.squareup:kotlinpoet:1.18.1")
+}
+
 dependencies {
     implementation(kotlin("stdlib"))
     compileOnly(gradleApi())

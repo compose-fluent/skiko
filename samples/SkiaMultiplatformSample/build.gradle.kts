@@ -1,4 +1,9 @@
+@file:Suppress("UNCHECKED_CAST")
+
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
+import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
+import org.gradle.api.Project
+import org.gradle.api.provider.Provider
 
 buildscript {
     repositories {
@@ -17,6 +22,8 @@ plugins {
     kotlin("multiplatform")
     id("org.jetbrains.gradle.apple.applePlugin") version "222.3345.143-0.16"
 }
+
+apply(from = "../skiko-winui-sample-dependencies.gradle.kts")
 
 repositories {
     google()
@@ -41,11 +48,16 @@ var hostArch = when (osArch) {
 }
 
 val host = "${hostOs}-${hostArch}"
+val isWindowsHost = hostOs == "windows"
 
 val isCompositeBuild = extra.properties.getOrDefault("skiko.composite.build", "") == "1"
 if (project.hasProperty("skiko.version") && isCompositeBuild) {
     project.logger.warn("skiko.version property has no effect when skiko.composite.build is set")
 }
+
+val skikoWinuiDependencyNotations = extra["skikoWinuiDependencyNotations"] as List<Any>
+val skikoWinuiRuntimeAssetsRoot = extra["skikoWinuiRuntimeAssetsRoot"] as Provider<String>
+val checkSkikoWinuiSampleRuntime = extra["checkSkikoWinuiSampleRuntime"] as (Project) -> Unit
 
 
 val skikoWasm by configurations.creating
@@ -136,15 +148,22 @@ kotlin {
             }
         }
 
-        val nativeMain by creating {
-            dependsOn(commonMain)
-        }
-
         val awtMain by getting {
             dependsOn(commonMain)
             dependencies {
                 implementation(libs.skiko.awt.runtime)
             }
+        }
+
+        val winuiMain by creating {
+            dependsOn(commonMain)
+            dependencies {
+                skikoWinuiDependencyNotations.forEach(::implementation)
+            }
+        }
+
+        val winuiJvmMain by creating {
+            dependsOn(winuiMain)
         }
 
         val webMain by creating {
@@ -161,15 +180,19 @@ kotlin {
             dependsOn(webMain)
         }
 
-        val darwinMain by creating {
-            dependsOn(nativeMain)
-        }
-
-        val macosMain by creating {
-            dependsOn(darwinMain)
-        }
-
         if (hostOs == "macos") {
+            val nativeMain by creating {
+                dependsOn(commonMain)
+            }
+
+            val darwinMain by creating {
+                dependsOn(nativeMain)
+            }
+
+            val macosMain by creating {
+                dependsOn(darwinMain)
+            }
+
             val macosX64Main by getting {
                 dependsOn(macosMain)
             }
@@ -196,6 +219,17 @@ kotlin {
             }
             val tvosSimulatorArm64Main by getting {
                 dependsOn(tvosMain)
+            }
+        }
+    }
+
+    targets.named<KotlinJvmTarget>("awt") {
+        compilations.create("winuiJvm") {
+            defaultSourceSet.dependsOn(this@kotlin.sourceSets["winuiJvmMain"])
+            compileTaskProvider.configure {
+                compilerOptions {
+                    jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_22)
+                }
             }
         }
     }
@@ -257,6 +291,44 @@ project.tasks.register<JavaExec>("runAwt") {
     classpath(kotlinTask.get().outputs)
     classpath(kotlin.jvm("awt").compilations["main"].runtimeDependencyFiles)
 }
+
+fun TaskContainer.registerWinuiSampleRunTask(
+    name: String,
+    autoExit: Boolean = false,
+    dispatcherRepro: String? = null,
+) = register<JavaExec>(name) {
+    group = "application"
+    description = if (autoExit) {
+        "Runs the AWT-free WinUI Skiko multiplatform sample and exits automatically."
+    } else {
+        "Runs the AWT-free WinUI Skiko multiplatform sample."
+    }
+    onlyIf { isWindowsHost }
+    val kotlinTask = project.tasks.named("compileWinuiJvmKotlinAwt")
+    dependsOn(kotlinTask)
+    jvmArgs(
+        "--enable-native-access=ALL-UNNAMED",
+        "-ea",
+    )
+    systemProperty("kotlin.winrt.runtimeAssetsRoot", skikoWinuiRuntimeAssetsRoot.get())
+    if (autoExit) {
+        systemProperty("skiko.winui.sample.autoExit", "true")
+    }
+    dispatcherRepro?.let {
+        systemProperty("skiko.winui.sample.dispatcherRepro", it)
+    }
+    mainClass.set("org.jetbrains.skiko.sample.App_winuiJvmKt")
+    classpath(kotlinTask.get().outputs)
+    classpath(kotlin.jvm("awt").compilations["winuiJvm"].runtimeDependencyFiles)
+    doFirst {
+        checkSkikoWinuiSampleRuntime(project)
+    }
+}
+
+project.tasks.registerWinuiSampleRunTask("runWinui")
+project.tasks.registerWinuiSampleRunTask("runWinuiSmoke", autoExit = true)
+project.tasks.registerWinuiSampleRunTask("runWinuiTimerSmoke", autoExit = true, dispatcherRepro = "timer")
+project.tasks.registerWinuiSampleRunTask("runWinuiHandlerSmoke", autoExit = true, dispatcherRepro = "handler")
 
 
 enum class Target(val simulator: Boolean, val key: String) {
