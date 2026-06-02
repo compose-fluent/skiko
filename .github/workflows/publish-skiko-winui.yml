@@ -23,8 +23,6 @@ jobs:
   publish-skiko-winui:
     name: Publish skiko-winui to Maven
     runs-on: windows-2022
-    env:
-      NUGET_PACKAGES: ${{ runner.temp }}\nuget-packages
 
     steps:
       - name: Checkout Skiko
@@ -69,6 +67,11 @@ jobs:
             throw "Visual Studio with MSVC x64 tools was not found."
           }
           "SKIKO_VSBT_PATH=$vsPath" >> $env:GITHUB_ENV
+
+      - name: Configure NuGet cache path
+        shell: pwsh
+        run: |
+          "NUGET_PACKAGES=${{ runner.temp }}\nuget-packages" >> $env:GITHUB_ENV
 
       - name: Cache NuGet packages
         uses: actions/cache@v4

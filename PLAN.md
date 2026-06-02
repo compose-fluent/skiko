@@ -124,6 +124,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
 - [ ] 正在做: Fix `skiko-winui` Maven publish CI failure on `winui_dev`.
   - 2026-06-02 run `26800244388` / job `79015980267` 失败在 step 11 `Verify skiko-winui publish locally`，最终失败任务是 `:skiko-winui:compileWinuiSkikoWindowsX64`，不是 Maven Central secrets 问题；step 12 发布被跳过。
   - CI 已改为 run-local `NUGET_PACKAGES` cache、Gradle `--max-workers=1` / `-Dorg.gradle.parallel=false`，降低 Windows NuGet/Gradle 并发干扰；native compile task 改为 response file，并在失败时打印 `cl/link` log，避免后续只看到 exit code。
+  - 2026-06-02 run `26804852323` 在 workflow 解析阶段失败，没有创建 jobs；原因是 job-level `env` 使用了 `runner.temp` context。已改为运行时 step 写入 `$GITHUB_ENV`。
 
 - [x] Stabilize Gradle layout after generated authoring source integration.
   - `GenerateWinRtProjectionsTask.sourceRoots` 已从具体 `.kt` 文件改为 `src/winuiMain/kotlin`，否则 kotlin-winrt 插件不会把 generated authoring source root 加入 KMP source set。
@@ -335,6 +336,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-02 `git diff --check` 通过。
   - 未运行远端 Maven Central publish；按当前发布测试策略，真实发布验证只通过推送到 GitHub Actions 执行。未读取 CI secrets。
   - 2026-06-02 GitHub Actions run `26800244388` / job `79015980267` 失败。命令：`gradle -p . --no-daemon --stacktrace --no-configuration-cache -Pskiko.winui.jvmTarget=25 -Pskiko.winui.jvmToolchain=25 -Pskiko.winui.mingw.enabled=false :skiko-winui:publishSkikoWinuiToMavenLocal`。结果：失败在 `:skiko-winui:compileWinuiSkikoWindowsX64`，旧 native batch 没有把 `cl/link` stderr 打到 Actions log。本轮准备通过推送后 GitHub Actions 重新验证。
+  - 2026-06-02 GitHub Actions run `26804852323` 失败在 workflow file issue，没有 jobs/logs；已修正 job-level `runner.temp` 用法，准备再次推送验证。
 
 - [x] Maven dependency mode sample compile.
   - 2026-06-01 已按 kotlin-winrt README 更新 Maven 坐标：`io.github.compose-fluent:winrt-runtime-jvm:0.1.0-SNAPSHOT`，并添加 Maven Central snapshots repository。
