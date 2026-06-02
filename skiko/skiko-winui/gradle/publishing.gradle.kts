@@ -37,6 +37,7 @@ val hasSigningPassword = providers.gradleProperty("signingInMemoryKeyPassword")
 tasks.register<Jar>("skikoWinuiSourcesJar") {
     group = "build"
     description = "Builds the skiko-winui sources jar for Maven publication."
+    archiveBaseName.set("skiko-winui")
     archiveClassifier.set("sources")
     from("src/commonMain/kotlin")
     from("src/winuiMain/kotlin")
@@ -46,18 +47,21 @@ tasks.register<Jar>("skikoWinuiSourcesJar") {
 tasks.register<Jar>("skikoWinuiJavadocJar") {
     group = "build"
     description = "Builds an empty skiko-winui javadoc jar for Maven Central publication."
+    archiveBaseName.set("skiko-winui")
     archiveClassifier.set("javadoc")
 }
 
 tasks.register<Jar>("skikoWinuiWindowsRuntimeSourcesJar") {
     group = "build"
     description = "Builds the skiko-winui Windows runtime sources jar for Maven publication."
+    archiveBaseName.set("skiko-winui-windows")
     archiveClassifier.set("sources")
 }
 
 tasks.register<Jar>("skikoWinuiWindowsRuntimeJavadocJar") {
     group = "build"
     description = "Builds an empty skiko-winui Windows runtime javadoc jar for Maven Central publication."
+    archiveBaseName.set("skiko-winui-windows")
     archiveClassifier.set("javadoc")
 }
 
