@@ -311,6 +311,7 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
         val importLib = outputDir.resolve("skiko-windows-x64.lib")
         val batchFile = outputDir.resolve("compile-skiko-winui-windows.cmd")
         val logFile = outputDir.resolve("compile-skiko-winui-windows.log")
+        val launcherLogFile = outputDir.resolve("compile-skiko-winui-windows-launcher.log")
         val linkResponseFile = outputDir.resolve("link-skiko-winui-windows.rsp")
         outputDir.mkdirs()
         objectsDir.mkdirs()
@@ -379,7 +380,7 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
 
         val exitCode = ProcessBuilder("cmd.exe", "/d", "/s", "/c", "\"${batchFile.absolutePath}\"")
             .redirectErrorStream(true)
-            .redirectOutput(ProcessBuilder.Redirect.appendTo(logFile))
+            .redirectOutput(ProcessBuilder.Redirect.appendTo(launcherLogFile))
             .start()
             .waitFor()
         if (exitCode != 0) {
@@ -399,6 +400,7 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
                 exitCode=$exitCode
                 batchFile=${batchFile.absolutePath}
                 logFile=${logFile.absolutePath}
+                launcherLogFile=${launcherLogFile.absolutePath}
                 logExists=${logFile.isFile}
                 logLength=${if (logFile.isFile) logFile.length() else 0}
                 ---- native log ----
