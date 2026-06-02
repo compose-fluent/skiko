@@ -132,6 +132,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-02 run `26806815817` native log 显示 `vcvars64.bat` 已输出 `Environment initialized for: 'x64'`，但 batch 随后直接失败，未进入 `cl`。已不再把 `vcvars64.bat` 的 exit code 作为失败依据，改为调用后检查 `cl.exe` / `link.exe` 是否可用。
   - 2026-06-02 run `26807330388` 仍在 `vcvars64.bat` 后直接退出，后续 `where cl.exe` 未执行；判断 `vcvars64.bat` 在 CI shell 中终止了当前 `cmd`。已改为先检测已有 `cl.exe`，只有 MSVC tools 不在 PATH 时才调用 `vcvars64.bat`。
   - 2026-06-02 run `26807826942` 已完成所有 `cl` 编译，失败在 link 阶段；日志出现 `Try 'link --help'`，说明调用到 Git/MSYS `link.exe` 而不是 MSVC linker。已改为优先从 `VCToolsInstallDir/bin/HostX64/x64` 使用绝对路径 `cl.exe` / `link.exe`。
+  - 2026-06-02 run `26809166940` 已确认使用 MSVC `link.exe`，新失败为 `msvcStlCompat.cc` 与 VS 2022 `libcpmt.lib(vector_algorithms.obj)` 重复定义 `__std_*` helper。已改为默认不编译 compat source，仅在 `-Pskiko.winui.msvcStlCompat=true` 时启用。
 
 - [x] Stabilize Gradle layout after generated authoring source integration.
   - `GenerateWinRtProjectionsTask.sourceRoots` 已从具体 `.kt` 文件改为 `src/winuiMain/kotlin`，否则 kotlin-winrt 插件不会把 generated authoring source root 加入 KMP source set。
@@ -352,6 +353,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-02 GitHub Actions run `26806815817` 失败在 `vcvars64.bat` 调用后立即退出；已改为用 `where cl.exe` / `where link.exe` 验证 MSVC 环境，准备再次推送验证。
   - 2026-06-02 GitHub Actions run `26807330388` 仍显示 batch 未越过 `vcvars64.bat`；已改为优先使用 `ilammy/msvc-dev-cmd` 预配置的 MSVC PATH，准备再次推送验证。
   - 2026-06-02 GitHub Actions run `26807826942` 失败在 Git/MSYS `link.exe` PATH 冲突；已改为使用 `VCToolsInstallDir` 下的 MSVC absolute tools path，准备再次推送验证。
+  - 2026-06-02 GitHub Actions run `26809166940` 失败在 MSVC STL vector helper 重复符号：`msvcStlCompat.cc` 与 `libcpmt.lib(vector_algorithms.obj)` 都提供 `__std_find_first_of_trivial_pos_1` / `__std_remove_8` / `__std_search_1`。已将 compat source 改为 opt-in，准备再次推送验证。
 
 - [x] Maven dependency mode sample compile.
   - 2026-06-01 已按 kotlin-winrt README 更新 Maven 坐标：`io.github.compose-fluent:winrt-runtime-jvm:0.1.0-SNAPSHOT`，并添加 Maven Central snapshots repository。

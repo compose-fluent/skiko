@@ -18,6 +18,9 @@ val winuiSkikoWindowsOutputDir = layout.buildDirectory.dir("native/skikoWinui/wi
 val winuiSkikoWindowsObjectsDir = winuiSkikoWindowsOutputDir.map { it.dir("obj") }
 val winuiSkikoWindowsDllFile = winuiSkikoWindowsOutputDir.map { it.file(skikoWinuiWindowsRuntimeDllName) }
 val winuiSkikoWindowsCompatSource = layout.projectDirectory.file("src/winuiJvmMain/cpp/windows/msvcStlCompat.cc")
+val winuiSkikoWindowsUseMsvcStlCompat = providers.gradleProperty("skiko.winui.msvcStlCompat")
+    .map(String::toBoolean)
+    .orElse(false)
 
 fun sha256(file: File): String {
     val digest = MessageDigest.getInstance("SHA-256")
@@ -67,7 +70,7 @@ fun skikoWinuiMainSources(): List<File> {
                 }
                 .toList()
         }
-        .plus(winuiSkikoWindowsCompatSource.asFile)
+        .plus(if (winuiSkikoWindowsUseMsvcStlCompat.get()) listOf(winuiSkikoWindowsCompatSource.asFile) else emptyList())
         .sortedBy { it.absolutePath }
 }
 
