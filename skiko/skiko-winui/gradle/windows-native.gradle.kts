@@ -370,20 +370,26 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
                 }
                 appendLine("echo link ${dll.name} >> \"%LOG%\"")
                 appendLine("link.exe @${linkResponseFile.toResponseFilePath()} >> \"%LOG%\" 2>&1 || goto :fail")
-                appendLine("type \"%LOG%\"")
                 appendLine("exit /b 0")
                 appendLine(":fail")
                 appendLine("set EXIT_CODE=%ERRORLEVEL%")
-                appendLine("type \"%LOG%\"")
                 appendLine("exit /b %EXIT_CODE%")
             }
         )
 
         val exitCode = ProcessBuilder("cmd.exe", "/c", batchFile.absolutePath)
-            .inheritIO()
+            .redirectErrorStream(true)
+            .redirectOutput(ProcessBuilder.Redirect.appendTo(logFile))
             .start()
             .waitFor()
         if (exitCode != 0) {
+            if (logFile.isFile) {
+                logger.lifecycle(
+                    logFile.readLines()
+                        .takeLast(240)
+                        .joinToString(System.lineSeparator())
+                )
+            }
             throw GradleException("WinUI-owned Skiko Windows runtime compilation failed with exit code $exitCode.")
         }
     }
