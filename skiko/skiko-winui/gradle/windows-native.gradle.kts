@@ -377,19 +377,36 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
             }
         )
 
-        val exitCode = ProcessBuilder("cmd.exe", "/c", batchFile.absolutePath)
+        val exitCode = ProcessBuilder("cmd.exe", "/d", "/s", "/c", "\"${batchFile.absolutePath}\"")
             .redirectErrorStream(true)
             .redirectOutput(ProcessBuilder.Redirect.appendTo(logFile))
             .start()
             .waitFor()
         if (exitCode != 0) {
-            if (logFile.isFile) {
-                logger.lifecycle(
-                    logFile.readLines()
-                        .takeLast(240)
-                        .joinToString(System.lineSeparator())
-                )
+            val nativeLog = if (logFile.isFile) {
+                logFile.readLines()
+                    .takeLast(240)
+                    .joinToString(System.lineSeparator())
+            } else {
+                "<missing native log>"
             }
+            val batchTail = batchFile.readLines()
+                .takeLast(40)
+                .joinToString(System.lineSeparator())
+            logger.lifecycle(
+                """
+                WinUI native compile failed.
+                exitCode=$exitCode
+                batchFile=${batchFile.absolutePath}
+                logFile=${logFile.absolutePath}
+                logExists=${logFile.isFile}
+                logLength=${if (logFile.isFile) logFile.length() else 0}
+                ---- native log ----
+                $nativeLog
+                ---- batch tail ----
+                $batchTail
+                """.trimIndent()
+            )
             throw GradleException("WinUI-owned Skiko Windows runtime compilation failed with exit code $exitCode.")
         }
     }
