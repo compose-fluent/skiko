@@ -23,6 +23,8 @@ jobs:
   publish-skiko-winui:
     name: Publish skiko-winui to Maven
     runs-on: windows-2022
+    env:
+      NUGET_PACKAGES: ${{ runner.temp }}\nuget-packages
 
     steps:
       - name: Checkout Skiko
@@ -72,7 +74,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~\.nuget\packages
+            ${{ runner.temp }}\nuget-packages
             ~\.gradle\caches\kotlin-winrt\nuget
           key: nuget-${{ runner.os }}-Microsoft.WindowsAppSDK-1.8.260416003
           restore-keys: nuget-${{ runner.os }}-
@@ -85,13 +87,14 @@ jobs:
       - name: Download Skia Windows dependency
         working-directory: compose-fluent-skiko/skiko
         shell: bash
-        run: gradle -p . unzipSkiaReleaseWindowsX64 --no-daemon --stacktrace --no-configuration-cache
+        run: gradle -p . unzipSkiaReleaseWindowsX64 --no-daemon --stacktrace --no-configuration-cache --max-workers=1
 
       - name: Verify skiko-winui publish locally
         working-directory: compose-fluent-skiko
         shell: bash
         run: |
-          gradle -p . --no-daemon --stacktrace --no-configuration-cache \
+          gradle -p . --no-daemon --stacktrace --no-configuration-cache --max-workers=1 \
+            -Dorg.gradle.parallel=false \
             -Pskiko.winui.jvmTarget=25 \
             -Pskiko.winui.jvmToolchain=25 \
             -Pskiko.winui.mingw.enabled=false \
@@ -107,7 +110,8 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.MAVEN_GPG_KEY_ARMOR }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.MAVEN_GPG_KEY_PASSWORD }}
         run: |
-          gradle -p . --no-daemon --stacktrace --no-configuration-cache \
+          gradle -p . --no-daemon --stacktrace --no-configuration-cache --max-workers=1 \
+            -Dorg.gradle.parallel=false \
             -Pskiko.winui.jvmTarget=25 \
             -Pskiko.winui.jvmToolchain=25 \
             -Pskiko.winui.mingw.enabled=false \

@@ -121,6 +121,10 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - CI 下载 Skia Windows x64 dependency，并只调用 `:skiko-winui:publishSkikoWinuiToMavenLocal` / `:skiko-winui:publishSkikoWinuiToMavenCentral`。
   - 远端发布使用 GitHub Actions secrets 映射到 Gradle project properties；本轮没有读取或抓取 CI secrets。
 
+- [ ] 正在做: Fix `skiko-winui` Maven publish CI failure on `winui_dev`.
+  - 2026-06-02 run `26800244388` / job `79015980267` 失败在 step 11 `Verify skiko-winui publish locally`，最终失败任务是 `:skiko-winui:compileWinuiSkikoWindowsX64`，不是 Maven Central secrets 问题；step 12 发布被跳过。
+  - CI 已改为 run-local `NUGET_PACKAGES` cache、Gradle `--max-workers=1` / `-Dorg.gradle.parallel=false`，降低 Windows NuGet/Gradle 并发干扰；native compile task 改为 response file，并在失败时打印 `cl/link` log，避免后续只看到 exit code。
+
 - [x] Stabilize Gradle layout after generated authoring source integration.
   - `GenerateWinRtProjectionsTask.sourceRoots` 已从具体 `.kt` 文件改为 `src/winuiMain/kotlin`，否则 kotlin-winrt 插件不会把 generated authoring source root 加入 KMP source set。
   - `:skiko-winui:compileKotlinWinuiJvm :skiko-winui:compileTestKotlinWinuiJvm :skiko-winui:checkWinuiAwtFreeBoundary` 已重新通过。
@@ -330,6 +334,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-02 Maven-resolved plugin path POM 生成通过。命令同上，任务为 `:skiko-winui:generatePomFileForSkikoWinuiJvmPublication :skiko-winui:generatePomFileForSkikoWinuiWindowsRuntimePublication`；确认主 POM 为 `io.github.compose-fluent:skiko-winui:0.0.0-SNAPSHOT`，runtime POM 为 `io.github.compose-fluent:skiko-winui-windows:0.0.0-SNAPSHOT`。
   - 2026-06-02 `git diff --check` 通过。
   - 未运行远端 Maven Central publish；按当前发布测试策略，真实发布验证只通过推送到 GitHub Actions 执行。未读取 CI secrets。
+  - 2026-06-02 GitHub Actions run `26800244388` / job `79015980267` 失败。命令：`gradle -p . --no-daemon --stacktrace --no-configuration-cache -Pskiko.winui.jvmTarget=25 -Pskiko.winui.jvmToolchain=25 -Pskiko.winui.mingw.enabled=false :skiko-winui:publishSkikoWinuiToMavenLocal`。结果：失败在 `:skiko-winui:compileWinuiSkikoWindowsX64`，旧 native batch 没有把 `cl/link` stderr 打到 Actions log。本轮准备通过推送后 GitHub Actions 重新验证。
 
 - [x] Maven dependency mode sample compile.
   - 2026-06-01 已按 kotlin-winrt README 更新 Maven 坐标：`io.github.compose-fluent:winrt-runtime-jvm:0.1.0-SNAPSHOT`，并添加 Maven Central snapshots repository。

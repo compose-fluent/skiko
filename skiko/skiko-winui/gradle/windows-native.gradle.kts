@@ -73,6 +73,8 @@ fun skikoWinuiMainSources(): List<File> {
 
 fun File.toResponseFilePath(): String = "\"${absolutePath.replace("\"", "\\\"")}\""
 
+fun File.toCommandLinePath(): String = absolutePath.replace("\"", "\\\"")
+
 fun File.toWinuiObjectName(): String =
     absolutePath
         .replace(rootProject.projectDir.absolutePath, "")
@@ -308,6 +310,7 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
         val dll = winuiSkikoWindowsDllFile.get().asFile
         val importLib = outputDir.resolve("skiko-windows-x64.lib")
         val batchFile = outputDir.resolve("compile-skiko-winui-windows.cmd")
+        val logFile = outputDir.resolve("compile-skiko-winui-windows.log")
         val linkResponseFile = outputDir.resolve("link-skiko-winui-windows.rsp")
         outputDir.mkdirs()
         objectsDir.mkdirs()
@@ -319,9 +322,27 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
             rootProject.file("skiko/src/jvmMain/cpp/common"),
             rootProject.file("skiko/src/jvmMain/cpp/include"),
         )
-        val includeArgs = includeDirs.filter(File::isDirectory).joinToString(" ") { "/I${it.toResponseFilePath()}" }
-        val defineArgs = skikoWinuiMainDefines().joinToString(" ") { "/D$it" }
         val objectFiles = sources.map { source -> objectsDir.resolve(source.toWinuiObjectName()) }
+        val compileResponseFiles = sources.zip(objectFiles).map { (source, obj) ->
+            val responseFile = objectsDir.resolve("${obj.nameWithoutExtension}.rsp")
+            responseFile.writeText(
+                buildString {
+                    appendLine("/nologo")
+                    appendLine("/c")
+                    appendLine("/std:c++20")
+                    appendLine("/O2")
+                    appendLine("/utf-8")
+                    appendLine("/GR-")
+                    appendLine("/FS")
+                    appendLine("/MT")
+                    skikoWinuiMainDefines().forEach { appendLine("/D$it") }
+                    includeDirs.filter(File::isDirectory).forEach { appendLine("/I${it.toResponseFilePath()}") }
+                    appendLine("/Fo${obj.toResponseFilePath()}")
+                    appendLine(source.toResponseFilePath())
+                }
+            )
+            source to responseFile
+        }
 
         linkResponseFile.writeText(
             buildString {
@@ -339,14 +360,22 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
         batchFile.writeText(
             buildString {
                 appendLine("@echo off")
-                appendLine("call ${vcvars64.toResponseFilePath()} >nul || exit /b 1")
-                sources.zip(objectFiles).forEach { (source, obj) ->
-                    appendLine(
-                        "cl.exe /nologo /c /std:c++20 /O2 /utf-8 /GR- /FS /MT " +
-                            "$defineArgs $includeArgs /Fo${obj.toResponseFilePath()} ${source.toResponseFilePath()} || exit /b 1"
-                    )
+                appendLine("setlocal")
+                appendLine("set \"LOG=${logFile.toCommandLinePath()}\"")
+                appendLine("echo Starting WinUI Skiko native build > \"%LOG%\"")
+                appendLine("call ${vcvars64.toResponseFilePath()} >> \"%LOG%\" 2>&1 || goto :fail")
+                compileResponseFiles.forEach { (source, responseFile) ->
+                    appendLine("echo cl ${source.name} >> \"%LOG%\"")
+                    appendLine("cl.exe @${responseFile.toResponseFilePath()} >> \"%LOG%\" 2>&1 || goto :fail")
                 }
-                appendLine("link.exe @${linkResponseFile.toResponseFilePath()} || exit /b 1")
+                appendLine("echo link ${dll.name} >> \"%LOG%\"")
+                appendLine("link.exe @${linkResponseFile.toResponseFilePath()} >> \"%LOG%\" 2>&1 || goto :fail")
+                appendLine("type \"%LOG%\"")
+                appendLine("exit /b 0")
+                appendLine(":fail")
+                appendLine("set EXIT_CODE=%ERRORLEVEL%")
+                appendLine("type \"%LOG%\"")
+                appendLine("exit /b %EXIT_CODE%")
             }
         )
 
