@@ -131,6 +131,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-02 run `26806353145` 失败日志确认 native compile 的 immediate failure 来自 log 文件锁：`The process cannot access the file because it is being used by another process.` 原因是 `ProcessBuilder.redirectOutput(logFile)` 与 batch 内部 `>> "%LOG%"` 同时写同一文件；已改为 launcher stdout 单独写 `compile-skiko-winui-windows-launcher.log`。
   - 2026-06-02 run `26806815817` native log 显示 `vcvars64.bat` 已输出 `Environment initialized for: 'x64'`，但 batch 随后直接失败，未进入 `cl`。已不再把 `vcvars64.bat` 的 exit code 作为失败依据，改为调用后检查 `cl.exe` / `link.exe` 是否可用。
   - 2026-06-02 run `26807330388` 仍在 `vcvars64.bat` 后直接退出，后续 `where cl.exe` 未执行；判断 `vcvars64.bat` 在 CI shell 中终止了当前 `cmd`。已改为先检测已有 `cl.exe`，只有 MSVC tools 不在 PATH 时才调用 `vcvars64.bat`。
+  - 2026-06-02 run `26807826942` 已完成所有 `cl` 编译，失败在 link 阶段；日志出现 `Try 'link --help'`，说明调用到 Git/MSYS `link.exe` 而不是 MSVC linker。已改为优先从 `VCToolsInstallDir/bin/HostX64/x64` 使用绝对路径 `cl.exe` / `link.exe`。
 
 - [x] Stabilize Gradle layout after generated authoring source integration.
   - `GenerateWinRtProjectionsTask.sourceRoots` 已从具体 `.kt` 文件改为 `src/winuiMain/kotlin`，否则 kotlin-winrt 插件不会把 generated authoring source root 加入 KMP source set。
@@ -340,6 +341,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 覆盖新增 `publishSkikoWinuiToMavenCentral`、`publishSkikoWinuiToMavenLocal`、sources/javadoc jars 和 signing task registration。
   - 2026-06-02 Maven-resolved plugin path POM 生成通过。命令同上，任务为 `:skiko-winui:generatePomFileForSkikoWinuiJvmPublication :skiko-winui:generatePomFileForSkikoWinuiWindowsRuntimePublication`；确认主 POM 为 `io.github.compose-fluent:skiko-winui:0.0.0-SNAPSHOT`，runtime POM 为 `io.github.compose-fluent:skiko-winui-windows:0.0.0-SNAPSHOT`。
   - 2026-06-02 `git diff --check` 通过。
+  - 2026-06-02 本地复跑 `:skiko-winui:tasks --all` 跳过：当前 shell 的 `JAVA_HOME` 是 `C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot`，Maven-resolved `winrt-gradle-plugin:0.1.0-SNAPSHOT` 要求 Gradle runtime JVM 25；本机未找到 JDK 25，需由 GitHub Actions 的 JDK 25 环境继续验证。
   - 未运行远端 Maven Central publish；按当前发布测试策略，真实发布验证只通过推送到 GitHub Actions 执行。未读取 CI secrets。
   - 2026-06-02 GitHub Actions run `26800244388` / job `79015980267` 失败。命令：`gradle -p . --no-daemon --stacktrace --no-configuration-cache -Pskiko.winui.jvmTarget=25 -Pskiko.winui.jvmToolchain=25 -Pskiko.winui.mingw.enabled=false :skiko-winui:publishSkikoWinuiToMavenLocal`。结果：失败在 `:skiko-winui:compileWinuiSkikoWindowsX64`，旧 native batch 没有把 `cl/link` stderr 打到 Actions log。本轮准备通过推送后 GitHub Actions 重新验证。
   - 2026-06-02 GitHub Actions run `26804852323` 失败在 workflow file issue，没有 jobs/logs；已修正 job-level `runner.temp` 用法，准备再次推送验证。
@@ -349,6 +351,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-02 GitHub Actions run `26806353145` 失败在 native compile log 文件锁；已修正 launcher/native log 文件分离，准备再次推送验证。
   - 2026-06-02 GitHub Actions run `26806815817` 失败在 `vcvars64.bat` 调用后立即退出；已改为用 `where cl.exe` / `where link.exe` 验证 MSVC 环境，准备再次推送验证。
   - 2026-06-02 GitHub Actions run `26807330388` 仍显示 batch 未越过 `vcvars64.bat`；已改为优先使用 `ilammy/msvc-dev-cmd` 预配置的 MSVC PATH，准备再次推送验证。
+  - 2026-06-02 GitHub Actions run `26807826942` 失败在 Git/MSYS `link.exe` PATH 冲突；已改为使用 `VCToolsInstallDir` 下的 MSVC absolute tools path，准备再次推送验证。
 
 - [x] Maven dependency mode sample compile.
   - 2026-06-01 已按 kotlin-winrt README 更新 Maven 坐标：`io.github.compose-fluent:winrt-runtime-jvm:0.1.0-SNAPSHOT`，并添加 Maven Central snapshots repository。

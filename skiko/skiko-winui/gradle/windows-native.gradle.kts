@@ -315,6 +315,18 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
         val linkResponseFile = outputDir.resolve("link-skiko-winui-windows.rsp")
         outputDir.mkdirs()
         objectsDir.mkdirs()
+        val msvcToolsBinDir = System.getenv("VCToolsInstallDir")
+            ?.let(::File)
+            ?.resolve("bin/HostX64/x64")
+            ?.takeIf(File::isDirectory)
+        val clExecutable = msvcToolsBinDir
+            ?.resolve("cl.exe")
+            ?.takeIf(File::isFile)
+        val linkExecutable = msvcToolsBinDir
+            ?.resolve("link.exe")
+            ?.takeIf(File::isFile)
+        val clCommand = clExecutable?.toResponseFilePath() ?: "cl.exe"
+        val linkCommand = linkExecutable?.toResponseFilePath() ?: "link.exe"
 
         val includeDirs = windowsSkiaIncludeDirs(skiaDir) + listOf(
             jdkHome.resolve("include"),
@@ -367,14 +379,22 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
                 appendLine("where cl.exe >> \"%LOG%\" 2>&1 && goto :msvc_ready")
                 appendLine("call ${vcvars64.toResponseFilePath()} >> \"%LOG%\" 2>&1")
                 appendLine(":msvc_ready")
-                appendLine("where cl.exe >> \"%LOG%\" 2>&1 || goto :fail")
-                appendLine("where link.exe >> \"%LOG%\" 2>&1 || goto :fail")
+                if (clExecutable != null) {
+                    appendLine("echo Using MSVC cl: ${clExecutable.absolutePath} >> \"%LOG%\"")
+                } else {
+                    appendLine("where cl.exe >> \"%LOG%\" 2>&1 || goto :fail")
+                }
+                if (linkExecutable != null) {
+                    appendLine("echo Using MSVC link: ${linkExecutable.absolutePath} >> \"%LOG%\"")
+                } else {
+                    appendLine("where link.exe >> \"%LOG%\" 2>&1 || goto :fail")
+                }
                 compileResponseFiles.forEach { (source, responseFile) ->
                     appendLine("echo cl ${source.name} >> \"%LOG%\"")
-                    appendLine("cl.exe @${responseFile.toResponseFilePath()} >> \"%LOG%\" 2>&1 || goto :fail")
+                    appendLine("$clCommand @${responseFile.toResponseFilePath()} >> \"%LOG%\" 2>&1 || goto :fail")
                 }
                 appendLine("echo link ${dll.name} >> \"%LOG%\"")
-                appendLine("link.exe @${linkResponseFile.toResponseFilePath()} >> \"%LOG%\" 2>&1 || goto :fail")
+                appendLine("$linkCommand @${linkResponseFile.toResponseFilePath()} >> \"%LOG%\" 2>&1 || goto :fail")
                 appendLine("exit /b 0")
                 appendLine(":fail")
                 appendLine("set EXIT_CODE=%ERRORLEVEL%")
