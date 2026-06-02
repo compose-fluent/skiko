@@ -134,6 +134,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-02 run `26807826942` 已完成所有 `cl` 编译，失败在 link 阶段；日志出现 `Try 'link --help'`，说明调用到 Git/MSYS `link.exe` 而不是 MSVC linker。已改为优先从 `VCToolsInstallDir/bin/HostX64/x64` 使用绝对路径 `cl.exe` / `link.exe`。
   - 2026-06-02 run `26809166940` 已确认使用 MSVC `link.exe`，新失败为 `msvcStlCompat.cc` 与 VS 2022 `libcpmt.lib(vector_algorithms.obj)` 重复定义 `__std_*` helper。已改为默认不编译 compat source，仅在 `-Pskiko.winui.msvcStlCompat=true` 时启用。
   - 2026-06-02 run `26810270223` native compile 已通过，失败移动到 `publishSkikoWinuiWindowsRuntimePublicationToMavenLocal` 的 Gradle 9.4 task validation；runtime sources/javadoc jar 与主 artifact sources/javadoc jar 输出同名文件。已显式设置 runtime jar `archiveBaseName=skiko-winui-windows`，主 sources/javadoc jar 固定为 `skiko-winui`。
+  - 2026-06-02 run `26811090621` 通过：`Verify skiko-winui publish locally` 和 `Publish skiko-winui` 均成功，确认 `winui_dev` push 会发布 snapshot。
 
 - [x] Stabilize Gradle layout after generated authoring source integration.
   - `GenerateWinRtProjectionsTask.sourceRoots` 已从具体 `.kt` 文件改为 `src/winuiMain/kotlin`，否则 kotlin-winrt 插件不会把 generated authoring source root 加入 KMP source set。
@@ -356,6 +357,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-02 GitHub Actions run `26807826942` 失败在 Git/MSYS `link.exe` PATH 冲突；已改为使用 `VCToolsInstallDir` 下的 MSVC absolute tools path，准备再次推送验证。
   - 2026-06-02 GitHub Actions run `26809166940` 失败在 MSVC STL vector helper 重复符号：`msvcStlCompat.cc` 与 `libcpmt.lib(vector_algorithms.obj)` 都提供 `__std_find_first_of_trivial_pos_1` / `__std_remove_8` / `__std_search_1`。已将 compat source 改为 opt-in，准备再次推送验证。
   - 2026-06-02 GitHub Actions run `26810270223` native compile 通过；失败在 runtime MavenLocal publication 的 implicit dependency validation，原因是 runtime sources/javadoc jar 默认输出文件名与主 artifact sources/javadoc jar 冲突。已修正 archive base names，准备再次推送验证。
+  - 2026-06-02 GitHub Actions run `26811090621` 通过；本地 Maven publish 验证和 Maven Central snapshot publish 均成功。
 
 - [x] Maven dependency mode sample compile.
   - 2026-06-01 已按 kotlin-winrt README 更新 Maven 坐标：`io.github.compose-fluent:winrt-runtime-jvm:0.1.0-SNAPSHOT`，并添加 Maven Central snapshots repository。
