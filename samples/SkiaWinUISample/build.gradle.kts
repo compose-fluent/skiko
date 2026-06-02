@@ -1,6 +1,7 @@
 @file:Suppress("UNCHECKED_CAST")
 
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.api.Project
 import org.gradle.api.provider.Provider
 
@@ -14,6 +15,11 @@ apply(from = "../skiko-winui-sample-dependencies.gradle.kts")
 repositories {
     mavenLocal()
     mavenCentral()
+    maven("https://central.sonatype.com/repository/maven-snapshots/") {
+        mavenContent {
+            snapshotsOnly()
+        }
+    }
     google()
     maven("https://redirector.kotlinlang.org/maven/compose-dev")
 }
@@ -30,6 +36,12 @@ dependencies {
 
 application {
     mainClass.set("SkiaWinUISample.AppKt")
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(22))
+    }
 }
 
 tasks.named<JavaExec>("run") {

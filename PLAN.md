@@ -18,7 +18,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
 - [x] Public API 只暴露 `org.jetbrains.skiko.winui.WinUISkiaLayer` 作为入口；`WinUISkiaLayerSurface` 只作为非 AWT host/scheduler 使用的 surface contract。
 - [x] V1 只支持 `GraphicsApi.DIRECT3D`。
 - [x] WinUI 渲染承载面固定为内部 `Microsoft.UI.Xaml.Controls.SwapChainPanel`；public `component` 是 `FrameworkElement` contract，当前由 `WinUISkiaHostPanel : Grid` 提供，host 内部持有 render panel。
-- [x] `kotlin-winrt` 来源固定为 `https://github.com/compose-fluent/kotlin-winrt`；Maven 发布前使用 sibling clone/local jars，不复制源码、不加 submodule。
+- [x] `kotlin-winrt` 来源固定为 `https://github.com/compose-fluent/kotlin-winrt`；默认通过 Maven Central snapshots 使用 `io.github.compose-fluent` artifacts，不复制源码、不加 submodule。调试 upstream 时可显式启用 local composite。
 - [x] WinUI 后端代码不放入、不修改 `skiko/src/awtMain`；AWT 只能作为参考。
 - [x] WinUI Windows runtime jar 独立命名为 `skiko-winui-windows.jar`，包含 WinUI-owned `skiko-windows-x64.dll`，不复用 `skiko-awt-runtime` jar。
 - [x] `WinUISkiaLayer` 拥有共享 WinUI layer 行为：`SwapChainPanel`、size/scale/focus、input interop、render request shaping、draw scope、picture recording、attach/detach/dispose。
@@ -35,11 +35,12 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - Projection type list保持显式最小化。
   - 当前必需类型包括 `Application`、`Window`、`FrameworkElement`、`UIElement`、`SwapChainPanel`、Automation peer/model enums、dispatcher timer/handler、size/focus/routed event types、`Windows.UI.Text.Core.CoreText*` IME/text composition types。
   - `Grid` / `Panel` / `UIElementCollection` 已重新进入显式 projection 请求，用于 `WinUISkiaHostPanel` 承载内部 `SwapChainPanel`。
-  - `kotlin-winrt` 当前本地最上游 checkout: `3a122ce2 Fix WinUI KMP authoring registration and struct ABI`。
-  - 当前 kotlin-winrt local jars 是 class file version 69，需要用 JDK 25 加载；root Gradle 8.13 不支持当前 JDK 25，验证需使用 sibling kotlin-winrt Gradle 9.4 wrapper。
+  - `kotlin-winrt` Maven plugin 当前默认使用 `io.github.compose-fluent:winrt-gradle-plugin:0.1.0-SNAPSHOT`。
+  - `skiko.winui.useKotlinWinRtComposite=true` 可显式启用 sibling checkout/composite，用于调试 unpublished kotlin-winrt changes；默认不再要求 `../kotlin-winrt` 存在。
+  - 当前 kotlin-winrt plugin/artifacts 需要 JDK 25 加载；root Gradle 8.13 不能在 JDK 25 下编译 Kotlin DSL，CI 使用 Gradle 9.4.0。
   - 最近 projection 生成结果：2026-05-22 通过，命令为 `E:\Documents\AndroidStudioProjects\kotlin-winrt\gradlew.bat -p E:\Documents\AndroidStudioProjects\compose-fluent-skiko :skiko-winui:generateWinRtProjections`，`JAVA_HOME=C:\Program Files\Microsoft\jdk-25.0.3.9-hotspot`。
   - 2026-05-31 已确认本地 `kotlin-winrt` HEAD 和 `origin/master` 都是 `3a122ce21b43d0f8ff62199b275275cc1d483a7f`；该提交把 projected struct 参数调用改为 sized shape（例如 `Struct8_4`），已解除 Skiko `GetPeerFromPointCore(Point)` ABI blocker。
-  - 新版 kotlin-winrt generator worker 依赖通过 composite build 解析；当前验证命令不再使用 `-Pskiko.winui.skipKotlinWinRtComposite=true`。
+  - 新版 kotlin-winrt generator worker 依赖通过 Maven artifact 解析；composite build 只作为显式 upstream debug path。
   - kotlin-winrt upstream issue 草稿统一维护在本地未跟踪文件 `KOTLIN_WINRT_UPSTREAM_ISSUE.md`；不再拆分多个 issue 文件。
 
 - [x] WinUI layer API
@@ -107,8 +108,18 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
     - `gradle/windows-native.gradle.kts`
     - `gradle/publishing.gradle.kts`
     - `gradle/smoke.gradle.kts`
+  - 2026-06-02 已新增 GitHub Actions `publish-skiko-winui.yml`，参考 `kotlin-winrt` snapshot publish workflow：Windows runner、JDK 25、Windows SDK、NuGet cache、先 Maven Local 验证再发布。
+  - 2026-06-02 已切换为 Maven-resolved kotlin-winrt plugin：CI 不再 checkout/build sibling `kotlin-winrt`，通过 `gradle/actions/setup-gradle` 安装 Gradle 9.4.0 后执行发布链。
+  - CI 只远端发布 `:skiko-winui:publishSkikoWinuiToMavenCentral`，不发布 upstream `:skiko` 或 samples；本地验证不读取 GitHub Actions secrets，secrets 问题留给推送后的 GitHub Actions 结果处理。
+  - `skiko-winui` Maven 主入口坐标改为 `io.github.compose-fluent:skiko-winui`，Windows runtime 为 `io.github.compose-fluent:skiko-winui-windows`；默认版本从上游 `skiko/gradle.properties` 的 `deploy.version` 派生，非 release 默认为 `-SNAPSHOT`。
 
 ## Active Work
+
+- [x] Add Maven publish CI for `skiko-winui`.
+  - 新 workflow 位于 `.github/workflows/publish-skiko-winui.yml`，push 到 `master` / `codex/**` 或手动 dispatch 时运行。
+  - CI 通过 Maven Central snapshots 解析 `io.github.compose-fluent:winrt-gradle-plugin:0.1.0-SNAPSHOT`，不再 checkout sibling `compose-fluent/kotlin-winrt`。
+  - CI 下载 Skia Windows x64 dependency，并只调用 `:skiko-winui:publishSkikoWinuiToMavenLocal` / `:skiko-winui:publishSkikoWinuiToMavenCentral`。
+  - 远端发布使用 GitHub Actions secrets 映射到 Gradle project properties；本轮没有读取或抓取 CI secrets。
 
 - [x] Stabilize Gradle layout after generated authoring source integration.
   - `GenerateWinRtProjectionsTask.sourceRoots` 已从具体 `.kt` 文件改为 `src/winuiMain/kotlin`，否则 kotlin-winrt 插件不会把 generated authoring source root 加入 KMP source set。
@@ -134,7 +145,8 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-01 进一步确认：`kotlinCompilerPluginClasspathWinuiMingwMain` / `kotlinNativeCompilerPluginClasspath` 显示无依赖，但 Native compiler 仍加载 kotlin-winrt compiler plugin；原因很可能是 downstream buildscript classpath 中的 `winrt-compiler-plugin.jar` 被 K/N service loader 发现。Skiko 侧无法仅靠 Native plugin classpath 过滤解除，需要 kotlin-winrt compiler plugin 自身做 target guard。
   - 2026-06-01 已在 `KOTLIN_WINRT_UPSTREAM_ISSUE.md` 记录最小待验证 upstream patch：在 `lowerProjectionIntrinsics(...)` 开头用 `pluginContext.platform.isJvm()` 跳过非 JVM target。当前尚未应用到 sibling `kotlin-winrt`，因为写入 sibling repo 的提权请求被自动审核服务 503 拒绝，需要用户明确放行后继续验证。
   - 已在 `KOTLIN_WINRT_UPSTREAM_ISSUE.md` 记录 `mingwX64` authoring registrar input 和 Native/JVM FFM lowering 问题；待 kotlin-winrt 能为 Native compile 跳过/替换 JVM FFM lowering 后补 native COM/D3D implementation。
-  - 临时验证脚本 `.\.agent_scripts\run_windows_gradle.ps1` 已删除 Foundation struct import 重写，只保留 Kotlin/JVM 生成源码兼容修补和旧 intrinsic alias 损坏产物的 restore-only cleanup；mingw 仍需要 kotlin-winrt 原生支持 compiler-plugin registrar input 和 Native-safe intrinsic lowering。
+  - 2026-06-01 native crash 复核：本轮 `winui-smoke` 未复现 WinUI/XAML native crash；工作区现有 `hs_err_pid*.log` 均为 Gradle/JVM daemon native OOM（`jvm.dll` C2/metaspace/native allocation），不是 `Microsoft.UI.Xaml.dll`、WinRT 或 Skiko native 崩溃。当前 `winui-mingw-compile` 仍是编译器诊断，未产生可用 WinDbg dump。
+  - 临时验证脚本 `.\.agent_scripts\run_windows_gradle.ps1` 已删除 Foundation struct import 重写；JVM core/smoke 路径已恢复上游 authoring 生成与 `validateCompileKotlinWinuiJvmWinRtAuthoredCandidates` 校验。脚本中剩余旧生成目录 cleanup 只用于处理本机历史构建产物，不再记录为上游 blocker；mingw 仍需要 kotlin-winrt 原生支持 compiler-plugin registrar input 和 Native-safe intrinsic lowering。
 
 ## Next Steps
 
@@ -257,24 +269,28 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-01 compile validation 已运行；已越过 kotlin-winrt runtime dependency、Skiko `mingwX64` variant、Skiko native API compile 和第一层 Native authoring registrar lookup，当前失败在 kotlin-winrt Native compile 的 JVM FFM intrinsic lowering。
   - 完成 kotlin-winrt Native authoring registrar wiring / Native-safe intrinsic lowering 后继续 `winuiMingwMain` compile validation，并进入 WinUI COM/D3D stub/native implementation。
 
-- [ ] Replace local sibling validation flags with Maven coordinates.
-  - 等 `kotlin-winrt` runtime/authoring/projection/plugin 发布后，切换集中依赖配置，不在业务代码保留本地路径。
+- [x] Replace local sibling validation flags with Maven coordinates.
+  - 2026-06-02 已切换 `skiko-winui` buildscript 到 `io.github.compose-fluent:winrt-gradle-plugin:0.1.0-SNAPSHOT`。
+  - 默认 settings 不再 require sibling `../kotlin-winrt`；local composite 只保留为 `skiko.winui.useKotlinWinRtComposite=true` 调试开关。
 
 ## Validation Matrix
 
 - [x] `:skiko-winui:compileKotlinWinuiJvm :skiko-winui:compileTestKotlinWinuiJvm :skiko-winui:checkWinuiAwtFreeBoundary`
   - 最近结果：2026-06-01 通过。命令：`.\.agent_scripts\run_windows_gradle.ps1 winui-core-check`。
+  - 2026-06-01 issue 复核后复跑仍通过。
   - 2026-06-01 restore-only projection intrinsic import cleanup 后复跑仍通过。
+  - 2026-06-01 后续确认：`publishSkikoWinuiToMavenLocal` 路径中 `validateCompileKotlinWinuiJvmWinRtAuthoredCandidates` 已运行并通过。
   - 当前命令使用 sibling kotlin-winrt Gradle 9.4 wrapper、JDK 25、`-Pskiko.winui.jvmTarget=25 -Pskiko.winui.jvmToolchain=25`、`-Dkotlin.daemon.jvmargs=-Xmx8192m -Dorg.gradle.jvmargs=-Xmx8192m`，保留 kotlin-winrt composite build，并通过 `-Dskiko.winui.skipSkikoComposite=true` 跳过旧 Skiko composite build。默认属性仍保留 JVM target/toolchain 22，以便后续 kotlin-winrt jars 重新按 JDK 22 发布或 Maven 化后恢复。
   - 覆盖 JVM source set 编译、test source 编译、AWT-free boundary。
-  - 临时说明：当前脚本仍跳过 `:skiko-winui:validateCompileKotlinWinuiJvmWinRtAuthoredCandidates`，但不再重写 `Point` / `Rect` / `Size` package；后续需在 authoring 生成/校验完全稳定后恢复该校验。
+  - 临时说明：脚本中剩余 cleanup 是本机旧构建产物清理，不再作为待修复 issue 追踪。
 
 - [x] `:skiko-winui:runWinuiJvmSmoke -Pskiko.winui.smokeArgs=--use-layer-attach`
   - 最近结果：2026-06-01 通过。命令：`.\.agent_scripts\run_windows_gradle.ps1 winui-smoke`。
+  - 2026-06-01 issue/native-crash 复核后复跑仍通过。
   - 2026-06-01 restore-only projection intrinsic import cleanup 后复跑仍通过。
   - 已验证 `WinUISkiaLayer()` 创建、WinUI host、320x240 render、480x360 resize render、custom automation peer dispatch、`getClassName()` 为 `WinUISkiaLayer`、`rootPeer.getChildren()` child peer 返回、first child / next sibling navigation、`getPeerFromPoint(Point(24f, 24f))` 返回 `Smoke button`。
   - 关键输出：`skiko-winui-smoke: automation peer hit-test Smoke button calls=1 point=24.0,24.0`。
-  - 临时说明：同 core check，当前 smoke 使用本地脚本跳过 TypeDetails parity 校验；runtime 行为已通过。
+  - 临时说明：smoke 仍通过本地脚本固定 JDK/参数；TypeDetails parity 校验不再跳过。
 
 - [x] `:skiko-winui:generateWinRtProjections`
   - 最近完整生成结果：2026-06-01 通过。命令：`.\.agent_scripts\run_windows_gradle.ps1 "-Dskiko.winui.skipSkikoComposite=true" "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" "-Pskiko.winui.localSkikoJar=skiko/build/libs/skiko-awt-0.0.0-SNAPSHOT.jar" "-Pskiko.winui.localWinRtRuntimeJar=E:\Documents\AndroidStudioProjects\kotlin-winrt\winrt-runtime\build\libs\winrt-runtime-jvm.jar" "-Pskiko.winui.localWinRtAuthoringJar=E:\Documents\AndroidStudioProjects\kotlin-winrt\winrt-authoring\build\libs\winrt-authoring-0.1.0-SNAPSHOT.jar" "-Dkotlin.daemon.jvmargs=-Xmx8192m" "-Dorg.gradle.jvmargs=-Xmx8192m" "--console=plain" ":skiko-winui:generateWinRtProjections"`。
@@ -306,11 +322,25 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 最近结果：通过。
   - Published focused JVM API jar and Windows runtime jar。
 
-- [ ] Blocked: Maven dependency mode sample compile.
-  - `samples/SkiaWinUISample -Pskiko.winui.dependencyMode=maven` 仍依赖未发布的 `io.github.composefluent.winrt:winrt-runtime:0.1.0-SNAPSHOT`。
+- [x] `:skiko-winui:tasks --all` publish task configuration.
+  - 最近结果：2026-06-02 通过。命令：`$env:JAVA_HOME='C:\Program Files\Microsoft\jdk-25.0.3.9-hotspot'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; ..\kotlin-winrt\gradlew.bat --no-daemon --stacktrace --console=plain -p . "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" "-Pskiko.winui.mingw.enabled=false" :skiko-winui:tasks --all`。
+  - 说明：该命令仅借用本机 Gradle 9.4 wrapper；本轮默认 settings 未启用 `skiko.winui.useKotlinWinRtComposite`，未配置 sibling `kotlin-winrt` included build。
+  - 2026-06-02 切换到 Maven-resolved `io.github.compose-fluent:winrt-gradle-plugin:0.1.0-SNAPSHOT` 后复跑通过；根 `gradle.properties` 默认 `kotlinWinRt.version=0.1.0-SNAPSHOT`。
+  - 覆盖新增 `publishSkikoWinuiToMavenCentral`、`publishSkikoWinuiToMavenLocal`、sources/javadoc jars 和 signing task registration。
+  - 2026-06-02 Maven-resolved plugin path POM 生成通过。命令同上，任务为 `:skiko-winui:generatePomFileForSkikoWinuiJvmPublication :skiko-winui:generatePomFileForSkikoWinuiWindowsRuntimePublication`；确认主 POM 为 `io.github.compose-fluent:skiko-winui:0.0.0-SNAPSHOT`，runtime POM 为 `io.github.compose-fluent:skiko-winui-windows:0.0.0-SNAPSHOT`。
+  - 2026-06-02 `git diff --check` 通过。
+  - 未运行远端 Maven Central publish；按当前发布测试策略，真实发布验证只通过推送到 GitHub Actions 执行。未读取 CI secrets。
+
+- [x] Maven dependency mode sample compile.
+  - 2026-06-01 已按 kotlin-winrt README 更新 Maven 坐标：`io.github.compose-fluent:winrt-runtime-jvm:0.1.0-SNAPSHOT`，并添加 Maven Central snapshots repository。
+  - 2026-06-01 修正 `skiko-winui-winuijvm` published POM，避免继续声明旧坐标 `io.github.composefluent.winrt:winrt-runtime`。
+  - 2026-06-02 Maven mode 坐标改为 `io.github.compose-fluent:skiko-winui` + `io.github.compose-fluent:skiko-winui-windows`。
+  - 验证命令：先发布当前 sibling kotlin-winrt runtime 到 Maven local，再运行 `.\.agent_scripts\run_windows_gradle.ps1 ... :skiko-winui:publishSkikoWinuiToMavenLocal`，最后运行 `.\gradlew.bat -p samples\SkiaWinUISample --console=plain "-Pskiko.winui.dependencyMode=maven" compileKotlin`。
+  - 最近结果：2026-06-01 通过。
 
 - [ ] Blocked: `winui-mingw` runtime validation.
   - 2026-06-01 `.\.agent_scripts\run_windows_gradle.ps1 winui-mingw-compile` 失败。
+  - 2026-06-01 issue/native-crash 复核后复跑仍失败在同一 kotlin-winrt JVM FFM lowering 诊断；没有 native crash/fail-fast。
   - 第一层已解除：移除未使用 coroutines 依赖后，不再需要下载 `kotlinx-coroutines-core-mingwx64` / `atomicfu-mingwx64`。
   - 2026-06-01 已确认新增的 `winuiJvmMain` runtime-only `kotlinx-coroutines-core-jvm` 没有污染 `winui-mingw`。
   - 第二层已解除：`kotlin-winrt:winrt-runtime:compileKotlinMingwX64` 和 `exportCrossCompilationMetadataForMingwX64ApiElements` 可被 composite/local klib 路径解析，generated projection 不再报 `io.github.composefluent.winrt.runtime` unresolved。

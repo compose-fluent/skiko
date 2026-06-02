@@ -177,10 +177,9 @@ if ($GradleArgs.Count -eq 1 -and $GradleArgs[0] -eq "winui-smoke") {
         "--console=plain",
         ":skiko-winui:generateWinRtProjections"
     )
-    Invoke-GenerateWinRtProjectionsIfMissing $GenerateArgs
+    Invoke-Gradle $GenerateArgs
     Restore-GeneratedWinRtProjectionIntrinsicImports
     Repair-GeneratedWinRtKotlinImports
-    Repair-GeneratedWinRtAuthoringSources
     Repair-GeneratedWinRtKotlinImports
 
     $GradleArgs = @(
@@ -195,8 +194,6 @@ if ($GradleArgs.Count -eq 1 -and $GradleArgs[0] -eq "winui-smoke") {
         "-Dkotlin.daemon.jvmargs=-Xmx8192m",
         "-Dorg.gradle.jvmargs=-Xmx8192m",
         "--console=plain",
-        "-x",
-        ":skiko-winui:validateCompileKotlinWinuiJvmWinRtAuthoredCandidates",
         ":skiko-winui:runWinuiJvmSmoke"
     )
 }
@@ -214,10 +211,9 @@ if ($GradleArgs.Count -eq 1 -and $GradleArgs[0] -eq "winui-core-check") {
         "--console=plain",
         ":skiko-winui:generateWinRtProjections"
     )
-    Invoke-GenerateWinRtProjectionsIfMissing $GenerateArgs
+    Invoke-Gradle $GenerateArgs
     Restore-GeneratedWinRtProjectionIntrinsicImports
     Repair-GeneratedWinRtKotlinImports
-    Repair-GeneratedWinRtAuthoringSources
     Repair-GeneratedWinRtKotlinImports
 
     $GradleArgs = @(
@@ -231,8 +227,6 @@ if ($GradleArgs.Count -eq 1 -and $GradleArgs[0] -eq "winui-core-check") {
         "-Dkotlin.daemon.jvmargs=-Xmx8192m",
         "-Dorg.gradle.jvmargs=-Xmx8192m",
         "--console=plain",
-        "-x",
-        ":skiko-winui:validateCompileKotlinWinuiJvmWinRtAuthoredCandidates",
         ":skiko-winui:compileKotlinWinuiJvm",
         ":skiko-winui:compileTestKotlinWinuiJvm",
         ":skiko-winui:checkWinuiAwtFreeBoundary"

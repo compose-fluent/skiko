@@ -1,18 +1,23 @@
 pluginManagement {
-    val kotlinWinRtLocalRepo = providers.gradleProperty("kotlinWinRt.localRepo")
-        .orElse("../kotlin-winrt")
-        .get()
-    val kotlinWinRtBuild = file(kotlinWinRtLocalRepo)
-    if (!kotlinWinRtBuild.isDirectory) {
-        throw GradleException(
-            "kotlin-winrt sibling clone not found at '$kotlinWinRtLocalRepo'. " +
-                "Clone https://github.com/compose-fluent/kotlin-winrt or set -PkotlinWinRt.localRepo=<path>."
-        )
-    }
-    if (!providers.gradleProperty("skiko.winui.skipKotlinWinRtComposite").map(String::toBoolean).getOrElse(false)) {
+    if (providers.gradleProperty("skiko.winui.useKotlinWinRtComposite").map(String::toBoolean).getOrElse(false)) {
+        val kotlinWinRtLocalRepo = providers.gradleProperty("kotlinWinRt.localRepo")
+            .orElse("../kotlin-winrt")
+            .get()
+        val kotlinWinRtBuild = file(kotlinWinRtLocalRepo)
+        if (!kotlinWinRtBuild.isDirectory) {
+            throw GradleException(
+                "kotlin-winrt sibling clone not found at '$kotlinWinRtLocalRepo'. " +
+                    "Clone https://github.com/compose-fluent/kotlin-winrt or set -PkotlinWinRt.localRepo=<path>."
+            )
+        }
         includeBuild(kotlinWinRtBuild.resolve("winrt-gradle-plugin"))
     }
     repositories {
+        maven("https://central.sonatype.com/repository/maven-snapshots/") {
+            mavenContent {
+                snapshotsOnly()
+            }
+        }
         mavenCentral()
         gradlePluginPortal()
         google()
@@ -29,17 +34,17 @@ fun settingsFlag(name: String): Boolean {
         ?: false
 }
 
-val kotlinWinRtLocalRepo = providers.gradleProperty("kotlinWinRt.localRepo")
-    .orElse("../kotlin-winrt")
-    .get()
-val kotlinWinRtBuild = file(kotlinWinRtLocalRepo)
-if (!kotlinWinRtBuild.isDirectory) {
-    throw GradleException(
-        "kotlin-winrt sibling clone not found at '$kotlinWinRtLocalRepo'. " +
-            "Clone https://github.com/compose-fluent/kotlin-winrt or set -PkotlinWinRt.localRepo=<path>."
-    )
-}
-if (!settingsFlag("skiko.winui.skipKotlinWinRtComposite")) {
+if (settingsFlag("skiko.winui.useKotlinWinRtComposite")) {
+    val kotlinWinRtLocalRepo = providers.gradleProperty("kotlinWinRt.localRepo")
+        .orElse("../kotlin-winrt")
+        .get()
+    val kotlinWinRtBuild = file(kotlinWinRtLocalRepo)
+    if (!kotlinWinRtBuild.isDirectory) {
+        throw GradleException(
+            "kotlin-winrt sibling clone not found at '$kotlinWinRtLocalRepo'. " +
+                "Clone https://github.com/compose-fluent/kotlin-winrt or set -PkotlinWinRt.localRepo=<path>."
+        )
+    }
     includeBuild(kotlinWinRtBuild)
 }
 includeBuild("samples/SkiaAwtSample")

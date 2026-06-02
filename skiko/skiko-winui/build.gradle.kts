@@ -2,51 +2,27 @@
 
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
-import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 buildscript {
-    val kotlinWinRtLocalRepo = gradle.startParameter.projectProperties["kotlinWinRt.localRepo"]
-        ?: "../kotlin-winrt"
-    val kotlinWinRtBuild = rootDir.resolve(kotlinWinRtLocalRepo)
-
-    fun kotlinWinRtJar(path: String, fallbackPattern: String): File {
-        val expected = kotlinWinRtBuild.resolve(path)
-        if (expected.isFile) return expected
-        return expected.parentFile
-            .listFiles { file -> file.isFile && file.name.matches(fallbackPattern.toRegex()) }
-            ?.sortedBy { it.name }
-            ?.firstOrNull()
-            ?: expected
-    }
-
-    val kotlinWinRtClasspath = listOf(
-        kotlinWinRtJar("winrt-gradle-plugin/build/libs/winrt-gradle-plugin.jar", "(winrt-gradle-plugin|kotlin-winrt-gradle-plugin).*\\.jar"),
-        kotlinWinRtJar("winrt-authoring/build/libs/winrt-authoring.jar", "winrt-authoring.*\\.jar"),
-        kotlinWinRtJar("winrt-runtime/build/libs/winrt-runtime-jvm.jar", "winrt-runtime-jvm.*\\.jar"),
-        kotlinWinRtJar("winrt-metadata/build/libs/winrt-metadata.jar", "winrt-metadata.*\\.jar"),
-        kotlinWinRtJar("winrt-generator/build/libs/winrt-generator.jar", "winrt-generator.*\\.jar"),
-        kotlinWinRtJar("winrt-compiler-plugin/build/libs/winrt-compiler-plugin.jar", "winrt-compiler-plugin.*\\.jar"),
-    )
-    val missingKotlinWinRtClasspath = kotlinWinRtClasspath.filterNot(File::isFile)
-    if (missingKotlinWinRtClasspath.isNotEmpty()) {
-        throw GradleException(
-            "kotlin-winrt Gradle plugin jars are missing. Build the sibling kotlin-winrt jars first or " +
-                "set -PkotlinWinRt.localRepo=<path>. Missing:\n${missingKotlinWinRtClasspath.joinToString("\n")}"
-        )
-    }
+    val kotlinWinRtVersion = providers.gradleProperty("kotlinWinRt.version")
+        .orElse("0.1.0-SNAPSHOT")
+        .get()
+    val kotlinWinRtGroup = providers.gradleProperty("kotlinWinRt.group")
+        .orElse("io.github.compose-fluent")
+        .get()
 
     repositories {
+        maven("https://central.sonatype.com/repository/maven-snapshots/") {
+            mavenContent {
+                snapshotsOnly()
+            }
+        }
         mavenCentral()
         gradlePluginPortal()
         google()
     }
     dependencies {
-        classpath(files(kotlinWinRtClasspath))
-        classpath("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.3.20")
-        classpath("com.squareup:kotlinpoet:1.18.1")
-        classpath("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
-        classpath("org.jetbrains.kotlinx:kotlinx-io-core:0.9.0")
-        classpath("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+        classpath("$kotlinWinRtGroup:winrt-gradle-plugin:$kotlinWinRtVersion")
     }
 }
 
@@ -61,10 +37,6 @@ val kotlinWinRtVersion = providers.gradleProperty("kotlinWinRt.version")
     .orElse("0.1.0-SNAPSHOT")
 val kotlinWinRtGroup = providers.gradleProperty("kotlinWinRt.group")
     .orElse("io.github.compose-fluent")
-val kotlinWinRtLocalRepo = providers.gradleProperty("kotlinWinRt.localRepo")
-    .orElse("../kotlin-winrt")
-val kotlinWinRtLocalBuild = rootDir.resolve(kotlinWinRtLocalRepo.get())
-val kotlinWinRtCompilerPluginJar = kotlinWinRtLocalBuild.resolve("winrt-compiler-plugin/build/libs/winrt-compiler-plugin.jar")
 val winuiWindowsAppSdkVersion = providers.gradleProperty("skiko.winui.windowsAppSdkVersion")
     .orElse("1.8.260416003")
 val winuiWindowsSdkVersion = providers.gradleProperty("skiko.winui.windowsSdkVersion")
@@ -139,11 +111,13 @@ val winuiProjectionTypes = listOf(
 )
 
 repositories {
+    maven("https://central.sonatype.com/repository/maven-snapshots/") {
+        mavenContent {
+            snapshotsOnly()
+        }
+    }
     mavenCentral()
     google()
-    flatDir {
-        dirs(kotlinWinRtLocalBuild.resolve("winrt-compiler-plugin/build/libs"))
-    }
 }
 
 kotlin {
@@ -219,12 +193,6 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().con
         "-Xexpect-actual-classes",
         "-opt-in=kotlin.time.ExperimentalTime",
     )
-}
-
-tasks.withType<KotlinJvmCompile>().configureEach {
-    if (kotlinWinRtCompilerPluginJar.isFile) {
-        compilerOptions.freeCompilerArgs.add("-Xplugin=${kotlinWinRtCompilerPluginJar.absolutePath}")
-    }
 }
 
 tasks.named<io.github.composefluent.winrt.gradle.GenerateWinRtProjectionsTask>("generateWinRtProjections") {

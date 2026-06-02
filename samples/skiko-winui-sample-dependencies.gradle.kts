@@ -29,9 +29,9 @@ val skikoWinuiOptionalLocalFiles = listOf(
 val skikoWinuiDependencyNotations: List<Any> = when (val mode = skikoWinuiDependencyMode.get()) {
     "local" -> listOf(files(skikoWinuiRequiredLocalFiles + skikoWinuiOptionalLocalFiles))
     "maven" -> listOf(
-        "org.jetbrains.skiko:skiko-winui-winuijvm:${skikoWinuiVersion.get()}",
-        "org.jetbrains.skiko:skiko-winui-windows:${skikoWinuiVersion.get()}",
-        "io.github.composefluent.winrt:winrt-runtime:${kotlinWinRtVersion.get()}",
+        "io.github.compose-fluent:skiko-winui:${skikoWinuiVersion.get()}",
+        "io.github.compose-fluent:skiko-winui-windows:${skikoWinuiVersion.get()}",
+        "io.github.compose-fluent:winrt-runtime-jvm:${kotlinWinRtVersion.get()}",
     )
     else -> throw GradleException(
         "Unsupported skiko.winui.dependencyMode='$mode'. Use 'local' or 'maven'."
