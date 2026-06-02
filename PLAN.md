@@ -129,6 +129,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-02 run `26805472076` 仍失败在 native compile，且日志中没有 native log 内容。已把 `cmd /c` 改为 quoted invocation，并在失败时无条件打印 exit code、batch/log path、log 是否存在和 batch tail。
   - 2026-06-02 run `26805949911` 失败提前发生在 `Download Skia Windows dependency`，原因是解析 `https://packages.jetbrains.team/.../publishing-0.1.28.pom` 时 connection timed out。已给 Skia 下载、本地发布验证和 Maven Central 发布 Gradle step 加 3 次 retry。
   - 2026-06-02 run `26806353145` 失败日志确认 native compile 的 immediate failure 来自 log 文件锁：`The process cannot access the file because it is being used by another process.` 原因是 `ProcessBuilder.redirectOutput(logFile)` 与 batch 内部 `>> "%LOG%"` 同时写同一文件；已改为 launcher stdout 单独写 `compile-skiko-winui-windows-launcher.log`。
+  - 2026-06-02 run `26806815817` native log 显示 `vcvars64.bat` 已输出 `Environment initialized for: 'x64'`，但 batch 随后直接失败，未进入 `cl`。已不再把 `vcvars64.bat` 的 exit code 作为失败依据，改为调用后检查 `cl.exe` / `link.exe` 是否可用。
 
 - [x] Stabilize Gradle layout after generated authoring source integration.
   - `GenerateWinRtProjectionsTask.sourceRoots` 已从具体 `.kt` 文件改为 `src/winuiMain/kotlin`，否则 kotlin-winrt 插件不会把 generated authoring source root 加入 KMP source set。
@@ -345,6 +346,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-02 GitHub Actions run `26805472076` 失败在同一 native compile task；日志仍未显示 native output。已追加 batch/log 状态诊断，准备再次推送验证。
   - 2026-06-02 GitHub Actions run `26805949911` 失败在外部 Maven repository 连接超时，未进入本地发布验证。已给 Gradle step 加 retry，准备再次推送验证。
   - 2026-06-02 GitHub Actions run `26806353145` 失败在 native compile log 文件锁；已修正 launcher/native log 文件分离，准备再次推送验证。
+  - 2026-06-02 GitHub Actions run `26806815817` 失败在 `vcvars64.bat` 调用后立即退出；已改为用 `where cl.exe` / `where link.exe` 验证 MSVC 环境，准备再次推送验证。
 
 - [x] Maven dependency mode sample compile.
   - 2026-06-01 已按 kotlin-winrt README 更新 Maven 坐标：`io.github.compose-fluent:winrt-runtime-jvm:0.1.0-SNAPSHOT`，并添加 Maven Central snapshots repository。
