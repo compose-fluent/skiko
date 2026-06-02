@@ -3,8 +3,7 @@ name: Publish Skiko WinUI
 on:
   push:
     branches:
-      - master
-      - 'codex/**'
+      - winui_dev
     paths:
       - '.github/workflows/publish-skiko-winui.yml'
       - 'build.gradle.kts'
