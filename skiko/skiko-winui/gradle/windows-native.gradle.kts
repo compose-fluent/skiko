@@ -364,7 +364,9 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
                 appendLine("setlocal")
                 appendLine("set \"LOG=${logFile.toCommandLinePath()}\"")
                 appendLine("echo Starting WinUI Skiko native build > \"%LOG%\"")
+                appendLine("where cl.exe >> \"%LOG%\" 2>&1 && goto :msvc_ready")
                 appendLine("call ${vcvars64.toResponseFilePath()} >> \"%LOG%\" 2>&1")
+                appendLine(":msvc_ready")
                 appendLine("where cl.exe >> \"%LOG%\" 2>&1 || goto :fail")
                 appendLine("where link.exe >> \"%LOG%\" 2>&1 || goto :fail")
                 compileResponseFiles.forEach { (source, responseFile) ->
