@@ -90,18 +90,31 @@ jobs:
       - name: Download Skia Windows dependency
         working-directory: compose-fluent-skiko/skiko
         shell: bash
-        run: gradle -p . unzipSkiaReleaseWindowsX64 --no-daemon --stacktrace --no-configuration-cache --max-workers=1
+        run: |
+          for attempt in 1 2 3; do
+            gradle -p . unzipSkiaReleaseWindowsX64 --no-daemon --stacktrace --no-configuration-cache --max-workers=1 && exit 0
+            if [ "$attempt" = "3" ]; then
+              exit 1
+            fi
+            sleep $((attempt * 30))
+          done
 
       - name: Verify skiko-winui publish locally
         working-directory: compose-fluent-skiko
         shell: bash
         run: |
-          gradle -p . --no-daemon --stacktrace --no-configuration-cache --max-workers=1 \
-            -Dorg.gradle.parallel=false \
-            -Pskiko.winui.jvmTarget=25 \
-            -Pskiko.winui.jvmToolchain=25 \
-            -Pskiko.winui.mingw.enabled=false \
-            :skiko-winui:publishSkikoWinuiToMavenLocal
+          for attempt in 1 2 3; do
+            gradle -p . --no-daemon --stacktrace --no-configuration-cache --max-workers=1 \
+              -Dorg.gradle.parallel=false \
+              -Pskiko.winui.jvmTarget=25 \
+              -Pskiko.winui.jvmToolchain=25 \
+              -Pskiko.winui.mingw.enabled=false \
+              :skiko-winui:publishSkikoWinuiToMavenLocal && exit 0
+            if [ "$attempt" = "3" ]; then
+              exit 1
+            fi
+            sleep $((attempt * 30))
+          done
 
       - name: Publish skiko-winui
         working-directory: compose-fluent-skiko
@@ -113,9 +126,15 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.MAVEN_GPG_KEY_ARMOR }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.MAVEN_GPG_KEY_PASSWORD }}
         run: |
-          gradle -p . --no-daemon --stacktrace --no-configuration-cache --max-workers=1 \
-            -Dorg.gradle.parallel=false \
-            -Pskiko.winui.jvmTarget=25 \
-            -Pskiko.winui.jvmToolchain=25 \
-            -Pskiko.winui.mingw.enabled=false \
-            :skiko-winui:publishSkikoWinuiToMavenCentral
+          for attempt in 1 2 3; do
+            gradle -p . --no-daemon --stacktrace --no-configuration-cache --max-workers=1 \
+              -Dorg.gradle.parallel=false \
+              -Pskiko.winui.jvmTarget=25 \
+              -Pskiko.winui.jvmToolchain=25 \
+              -Pskiko.winui.mingw.enabled=false \
+              :skiko-winui:publishSkikoWinuiToMavenCentral && exit 0
+            if [ "$attempt" = "3" ]; then
+              exit 1
+            fi
+            sleep $((attempt * 30))
+          done

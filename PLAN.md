@@ -127,6 +127,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-02 run `26804852323` 在 workflow 解析阶段失败，没有创建 jobs；原因是 job-level `env` 使用了 `runner.temp` context。已改为运行时 step 写入 `$GITHUB_ENV`。
   - 2026-06-02 run `26804974176` 正常创建 job，但仍失败在 `:skiko-winui:compileWinuiSkikoWindowsX64`；确认 `ProcessBuilder.inheritIO()` 没有把 batch/native output 带到 Gradle Actions log。已改为 task 失败时显式读取 native log 并通过 Gradle logger 打印。
   - 2026-06-02 run `26805472076` 仍失败在 native compile，且日志中没有 native log 内容。已把 `cmd /c` 改为 quoted invocation，并在失败时无条件打印 exit code、batch/log path、log 是否存在和 batch tail。
+  - 2026-06-02 run `26805949911` 失败提前发生在 `Download Skia Windows dependency`，原因是解析 `https://packages.jetbrains.team/.../publishing-0.1.28.pom` 时 connection timed out。已给 Skia 下载、本地发布验证和 Maven Central 发布 Gradle step 加 3 次 retry。
 
 - [x] Stabilize Gradle layout after generated authoring source integration.
   - `GenerateWinRtProjectionsTask.sourceRoots` 已从具体 `.kt` 文件改为 `src/winuiMain/kotlin`，否则 kotlin-winrt 插件不会把 generated authoring source root 加入 KMP source set。
@@ -341,6 +342,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-02 GitHub Actions run `26804852323` 失败在 workflow file issue，没有 jobs/logs；已修正 job-level `runner.temp` 用法，准备再次推送验证。
   - 2026-06-02 GitHub Actions run `26804974176` 失败在同一 native compile task；workflow 已正确使用 `NUGET_PACKAGES=D:\a\_temp\nuget-packages`，但 native output 仍未出现在日志中。已改为 Gradle task 显式打印 native log，准备再次推送验证。
   - 2026-06-02 GitHub Actions run `26805472076` 失败在同一 native compile task；日志仍未显示 native output。已追加 batch/log 状态诊断，准备再次推送验证。
+  - 2026-06-02 GitHub Actions run `26805949911` 失败在外部 Maven repository 连接超时，未进入本地发布验证。已给 Gradle step 加 retry，准备再次推送验证。
 
 - [x] Maven dependency mode sample compile.
   - 2026-06-01 已按 kotlin-winrt README 更新 Maven 坐标：`io.github.compose-fluent:winrt-runtime-jvm:0.1.0-SNAPSHOT`，并添加 Maven Central snapshots repository。
