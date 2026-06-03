@@ -120,6 +120,8 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-02 已切换为 Maven-resolved kotlin-winrt plugin：CI 不再 checkout/build sibling `kotlin-winrt`，通过 `gradle/actions/setup-gradle` 安装 Gradle 9.4.0 后执行发布链。
   - CI 只远端发布 `:skiko-winui:publishSkikoWinuiToMavenCentral`，不发布 upstream `:skiko` 或 samples；本地验证不读取 GitHub Actions secrets，secrets 问题留给推送后的 GitHub Actions 结果处理。
   - `skiko-winui` Maven 主入口坐标改为 `io.github.compose-fluent:skiko-winui`，Windows runtime 为 `io.github.compose-fluent:skiko-winui-windows`；默认版本从上游 `skiko/gradle.properties` 的 `deploy.version` 派生，非 release 默认为 `-SNAPSHOT`。
+  - 2026-06-03 针对 compose-winui `SKIKO-006`，确认仅在 POM/Gradle dependency 上 exclude `org.jetbrains.skiko:skiko-awt` 不够：`org.jetbrains.skiko:skiko` 的 JVM variant 会通过 Gradle module metadata `available-at` 重定向到 `skiko-awt`。当前处理不拆上游 artifact，而是在 `skiko-winui` 的 `winuiJvmJar` 构建时复用现有 Skiko JVM API jar，内嵌 `org.jetbrains.skia` 与排除 AWT/Swing/Desktop surface 后的 shared `org.jetbrains.skiko` API 类；发布 POM 不再声明会触发 `skiko-awt` variant 重定向的 `org.jetbrains.skiko:skiko` 传递依赖。
+  - 2026-06-03 针对 compose-winui `SKIKO-004`，`WinUISkiaLayer` 在未挂到 WinUI host / 未 Loaded 前不再进入 platform render 或启动 standalone frame scheduler；`attachTo(Window)` / `hostWinUISkiaLayer` 后仍允许原有 sample 在 `activate()` callback 内请求 render 和启动 scheduler，避免把正常 WinUI Window attach 路径误判为 unattached surface。Loaded/Unloaded 事件维护 Kotlin 侧 host-loaded flag，Unloaded 时停止 scheduler 并把后续 render 请求留到重新 host 后再处理。
 
 ## Active Work
 
@@ -148,6 +150,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - `GenerateWinRtProjectionsTask.sourceRoots` 已从具体 `.kt` 文件改为 `src/winuiMain/kotlin`，否则 kotlin-winrt 插件不会把 generated authoring source root 加入 KMP source set。
   - `:skiko-winui:compileKotlinWinuiJvm :skiko-winui:compileTestKotlinWinuiJvm :skiko-winui:checkWinuiAwtFreeBoundary` 已重新通过。
   - `:skiko-winui:runWinuiJvmSmoke -Pskiko.winui.smokeArgs=--use-layer-attach` 已越过 generated authoring compile、host layout、custom peer dispatch、`GetChildrenCore` collection return 和 `GetPeerFromPointCore(Point)` struct ABI，当前通过。
+  - 2026-06-03 本轮验证受工具链状态阻塞：JDK 22 下最新 `winrt-gradle-plugin` 要求 JVM runtime 25；JDK 25 下当前 Gradle 8.13 配置阶段报 `25.0.3`，未能继续执行 `:skiko-winui:dependencies --configuration winuiJvmCompileClasspath`。需要升级 Gradle wrapper 或回退插件 classfile baseline 后复跑 `:skiko-winui:compileKotlinWinuiJvm :skiko-winui:checkWinuiAwtFreeBoundary :skiko-winui:publishSkikoWinuiToMavenLocal`。
   - 保持主 `build.gradle.kts` 面向模块声明，不再堆积 native command construction 和 smoke/publishing 细节。
   - 当前 Windows 进程看不到 `V:\VC\Auxiliary\Build\vcvars64.bat`；已有 native outputs 未过期时 native compile tasks 会跳过，缺失/过期时仍需要有效 VS path。
 
@@ -310,6 +313,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
 
 - [x] `:skiko-winui:runWinuiJvmSmoke -Pskiko.winui.smokeArgs=--use-layer-attach`
   - 最近结果：2026-06-03 通过。命令：`.\.agent_scripts\run_windows_gradle.ps1 winui-smoke`。
+  - 2026-06-03 `SKIKO-004` 复测通过。命令：`$env:JAVA_HOME='C:\Program Files\Microsoft\jdk-25.0.3.9-hotspot'; gradle :skiko-winui:runWinuiJvmSmoke "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" "-Pskiko.winui.localSkikoJar=skiko/build/libs/skiko-awt-0.0.0-SNAPSHOT.jar" "-Pskiko.winui.smokeArgs=--use-layer-attach" --no-configuration-cache --no-daemon`。结果：通过；smoke 覆盖 unattached `startFrameScheduler()` 不 running、unattached `needRender(false)` 不触发 render、attach 后渲染 320x240 与 resize 后 480x360 两帧。
   - 2026-06-03 公开 `renderPanel` / `renderDiagnostics` 后复跑通过。
   - 2026-06-03 移除 `WinUISkiaLayerRenderDelegate` render-time self-request 后复跑通过；smoke 仍覆盖两次 render、resize 和 automation peer hit-test。
   - 2026-06-01 issue/native-crash 复核后复跑仍通过。
@@ -327,6 +331,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
 - [x] `samples/SkiaWinUISample:compileKotlin`
   - 最近结果：2026-06-03 通过。
   - 覆盖 standalone WinUI sample 消费 `WinUISkiaLayerRenderDelegate`。
+  - 2026-06-03 `SKIKO-004` 直接 sample 复测：`.\gradlew.bat -p samples\SkiaWinUISample run --no-configuration-cache --no-daemon` 持续运行到 90 秒工具超时，没有快速 native crash；符合交互式 sample 启动后常驻行为。
   - 2026-06-03 WinUI Clock 场景改为 AWT-style grid clocks 后，`.\gradlew.bat -p samples\SkiaWinUISample --console=plain compileKotlin` 通过。
   - 2026-06-03 `.\gradlew.bat --no-daemon -p samples\SkiaWinUISample --console=plain run` 已启动并保持 `Skia WinUI Sample` 窗口运行；Mica/stretch 修正版窗口 PID 为 `11048`，进程命令行为当前 `SkiaWinUISample.AppKt`，未出现新的 `java.exe` WER dump。GDI `CopyFromScreen` 对 WinUI/DirectComposition surface 截图不可靠，未作为画面验证依据。
   - 2026-06-03 复刻 AWT paragraph/picture/theme 路径时，run 复现 `0xC000027B`：Application event log 显示 faulting module `CoreMessagingXP.dll`，WER 二级签名 `combase.dll` / `0x8007000e`；本机只有商店版 `WinDbgX.exe`，命令行 dump 分析未返回可用栈。二分后确认 `drawString + currentSystemTheme` 也会失败，直接 `drawString` 且不读取 theme 稳定；最终版本保留 AWT-style grid clocks 和 render info，但暂不显示 system theme。
@@ -351,6 +356,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
 - [x] `:skiko-winui:publishSkikoWinuiToMavenLocal`
   - 最近结果：通过。
   - Published focused JVM API jar and Windows runtime jar。
+  - 2026-06-03 `SKIKO-006` 本地验证通过。命令：`$env:JAVA_HOME='C:\Program Files\Microsoft\jdk-25.0.3.9-hotspot'; gradle :skiko-winui:publishSkikoWinuiToMavenLocal "-Pskiko.version=0.0.1-local-SNAPSHOT" "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" "-Pskiko.winui.localSkikoJar=skiko/build/libs/skiko-awt-0.0.0-SNAPSHOT.jar" --no-configuration-cache --no-daemon --rerun-tasks`。结果：通过，发布到本机 `F:\Dependencies\maven`；`skiko-winui` POM 只保留 `winrt-runtime-jvm` compile dependency 和 `skiko-winui-windows` runtime dependency，不再传递 `org.jetbrains.skiko:skiko` / `skiko-awt`。
 
 - [x] `:skiko-winui:tasks --all` publish task configuration.
   - 最近结果：2026-06-02 通过。命令：`$env:JAVA_HOME='C:\Program Files\Microsoft\jdk-25.0.3.9-hotspot'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; ..\kotlin-winrt\gradlew.bat --no-daemon --stacktrace --console=plain -p . "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" "-Pskiko.winui.mingw.enabled=false" :skiko-winui:tasks --all`。
@@ -379,7 +385,9 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-01 修正 `skiko-winui-winuijvm` published POM，避免继续声明旧坐标 `io.github.composefluent.winrt:winrt-runtime`。
   - 2026-06-02 Maven mode 坐标改为 `io.github.compose-fluent:skiko-winui` + `io.github.compose-fluent:skiko-winui-windows`。
   - 验证命令：先发布当前 sibling kotlin-winrt runtime 到 Maven local，再运行 `.\.agent_scripts\run_windows_gradle.ps1 ... :skiko-winui:publishSkikoWinuiToMavenLocal`，最后运行 `.\gradlew.bat -p samples\SkiaWinUISample --console=plain "-Pskiko.winui.dependencyMode=maven" compileKotlin`。
-  - 最近结果：2026-06-01 通过。
+  - 2026-06-03 `SKIKO-006` 复测通过。命令：`.\gradlew.bat -p samples\SkiaWinUISample dependencies --configuration runtimeClasspath "-Pskiko.winui.dependencyMode=maven" "-Pskiko.winui.version=0.0.1-local-SNAPSHOT" --offline --no-configuration-cache --no-daemon`。结果：通过，runtimeClasspath 未出现 `org.jetbrains.skiko:skiko-awt`。
+  - 2026-06-03 `SKIKO-006` compile 复测通过。命令：`.\gradlew.bat -p samples\SkiaWinUISample compileKotlin "-Pskiko.winui.dependencyMode=maven" "-Pskiko.winui.version=0.0.1-local-SNAPSHOT" --offline --no-configuration-cache --no-daemon`。结果：通过。
+  - 2026-06-03 按要求直接运行 sample。命令：`.\gradlew.bat -p samples\SkiaWinUISample run "-Pskiko.winui.dependencyMode=maven" "-Pskiko.winui.version=0.0.1-local-SNAPSHOT" --offline --no-configuration-cache --no-daemon`。结果：进程持续运行到 120 秒工具超时，没有快速 native crash；行为与本地 file mode 交互式 sample 常驻一致。
 
 - [ ] Blocked: `winui-mingw` runtime validation.
   - 2026-06-01 `.\.agent_scripts\run_windows_gradle.ps1 winui-mingw-compile` 失败。

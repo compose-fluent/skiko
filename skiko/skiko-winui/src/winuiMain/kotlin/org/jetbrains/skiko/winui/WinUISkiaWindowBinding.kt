@@ -41,13 +41,20 @@ class WinUISkiaWindowBinding internal constructor(
         }
     }
 
-    fun startFrameScheduler(): WinUIFrameScheduler {
+    fun frameScheduler(): WinUIFrameScheduler {
         check(!isClosed) { "WinUISkiaWindowBinding is closed" }
-        return (frameScheduler ?: createFrameScheduler().also { scheduler ->
+        return frameScheduler ?: createFrameScheduler().also { scheduler ->
             frameScheduler = scheduler
-        }).also { scheduler ->
+        }
+    }
+
+    fun startFrameScheduler(): WinUIFrameScheduler =
+        frameScheduler().also { scheduler ->
             scheduler.start()
         }
+
+    fun stopFrameScheduler() {
+        frameScheduler?.stop()
     }
 
     private fun createFrameScheduler(): WinUIFrameScheduler {

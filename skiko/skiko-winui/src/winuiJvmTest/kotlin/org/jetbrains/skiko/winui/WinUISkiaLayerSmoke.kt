@@ -165,11 +165,19 @@ private class SmokeSession(
         }
         val component = skiaLayer.component
         val frameworkElement: FrameworkElement = component
+        frameworkElement.width = INITIAL_WIDTH
+        frameworkElement.height = INITIAL_HEIGHT
+        check(!skiaLayer.startFrameScheduler().isRunning) {
+            "Expected unattached WinUISkiaLayer frame scheduler to wait until the layer is hosted."
+        }
+        skiaLayer.needRender(throttledToVsync = false)
+        check(renderCount == 0) {
+            "Expected unattached WinUISkiaLayer.needRender() to wait until hosted, got $renderCount renders."
+        }
+        skiaLayer.startFrameScheduler().close()
         if (options.useGeneratedWindowApi) {
             if (options.useLayerAttach) {
                 println("skiko-winui-smoke: host layer with WinUISkiaLayer.attachTo")
-                frameworkElement.width = INITIAL_WIDTH
-                frameworkElement.height = INITIAL_HEIGHT
                 skiaLayer.attachTo(winuiWindow)
                 skiaLayer.detach()
                 skiaLayer.attachTo(winuiWindow)
@@ -190,8 +198,6 @@ private class SmokeSession(
                 windowBinding?.startFrameScheduler()?.stop()
             }
         } else {
-            frameworkElement.width = INITIAL_WIDTH
-            frameworkElement.height = INITIAL_HEIGHT
             setWindowContent(winuiWindow, component)
         }
         println("skiko-winui-smoke: content set")

@@ -114,12 +114,6 @@ extensions.configure<PublishingExtension>("publishing") {
             pom.withXml {
                 val dependencies = asNode().appendNode("dependencies")
                 dependencies.appendNode("dependency").apply {
-                    appendNode("groupId", "org.jetbrains.skiko")
-                    appendNode("artifactId", "skiko")
-                    appendNode("version", skikoVersion.get())
-                    appendNode("scope", "compile")
-                }
-                dependencies.appendNode("dependency").apply {
                     appendNode("groupId", kotlinWinRtGroup.get())
                     appendNode("artifactId", "winrt-runtime-jvm")
                     appendNode("version", kotlinWinRtVersion.get())
