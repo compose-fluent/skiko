@@ -16,6 +16,5 @@ open class WinUISkiaLayerRenderDelegate(
             height = (height / contentScale).toInt(),
             nanoTime = nanoTime,
         )
-        layer.needRender()
     }
 }

@@ -1,6 +1,6 @@
 package org.jetbrains.skiko.winui
 
-internal data class WinUILayerRenderDiagnostics(
+data class WinUILayerRenderDiagnostics(
     val renderVersion: Long,
     val lastRenderedState: WinUILayerRenderState?,
     val pendingInvalidatedState: WinUILayerRenderState?,
@@ -8,7 +8,7 @@ internal data class WinUILayerRenderDiagnostics(
     val lastFailure: WinUILayerRenderFailure?,
 )
 
-internal data class WinUILayerRenderState(
+data class WinUILayerRenderState(
     val logicalWidth: Float,
     val logicalHeight: Float,
     val scaledWidth: Int,
@@ -16,7 +16,7 @@ internal data class WinUILayerRenderState(
     val contentScale: Float,
 )
 
-internal data class WinUIPlatformRenderResult(
+data class WinUIPlatformRenderResult(
     val width: Int,
     val height: Int,
     val contentScale: Float,
@@ -26,7 +26,7 @@ internal data class WinUIPlatformRenderResult(
     val bufferIndex: Int,
 )
 
-internal data class WinUILayerRenderFailure(
+data class WinUILayerRenderFailure(
     val state: WinUILayerRenderState,
     val throttledToVsync: Boolean,
     val renderVersion: Long,

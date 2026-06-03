@@ -2,40 +2,54 @@ package SkiaWinUISample
 
 import io.github.composefluent.winrt.runtime.RuntimeScope
 import io.github.composefluent.winrt.runtime.WinRtWindowsAppSdkBootstrap
+import microsoft.ui.xaml.HorizontalAlignment
+import microsoft.ui.xaml.VerticalAlignment
 import microsoft.ui.xaml.Application
 import microsoft.ui.xaml.Window
+import microsoft.ui.xaml.media.MicaBackdrop
 import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.Color
 import org.jetbrains.skia.Font
+import org.jetbrains.skia.FontEdging
+import org.jetbrains.skia.FontHinting
+import org.jetbrains.skia.FontMgr
 import org.jetbrains.skia.Paint
+import org.jetbrains.skia.PaintMode
+import org.jetbrains.skia.Rect
+import org.jetbrains.skiko.GraphicsApi
 import org.jetbrains.skiko.SkikoRenderDelegate
 import org.jetbrains.skiko.winui.WinUIFocusEvent
+import org.jetbrains.skiko.winui.WinUIFocusState
 import org.jetbrains.skiko.winui.WinUIInputHandler
 import org.jetbrains.skiko.winui.WinUIKeyEvent
 import org.jetbrains.skiko.winui.WinUIPointerEvent
-import org.jetbrains.skiko.winui.WinUITextInputEvent
+import org.jetbrains.skiko.winui.WinUIPointerEventType
 import org.jetbrains.skiko.winui.WinUISkiaLayer
 import org.jetbrains.skiko.winui.WinUISkiaLayerRenderDelegate
+import org.jetbrains.skiko.winui.WinUITextInputEvent
 import windows.foundation.TypedEventHandler
 import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.min
 import kotlin.math.sin
 
 fun main() {
     WinRtWindowsAppSdkBootstrap.initialize().use {
         RuntimeScope.initializeSingleThreaded().use {
             Application.start {
-                val application = Application.current ?: Application()
-                val scene = ClockScene()
+                val application = Application()
                 val layer = WinUISkiaLayer()
+                val scene = ClocksWinUI(
+                    scaleProvider = { layer.contentScale },
+                    renderProvider = { layer.renderApi },
+                )
                 layer.renderDelegate = WinUISkiaLayerRenderDelegate(layer, scene)
                 layer.inputHandler = scene
-                layer.component.width = 800.0
-                layer.component.height = 600.0
+                layer.component.horizontalAlignment = HorizontalAlignment.Stretch
+                layer.component.verticalAlignment = VerticalAlignment.Stretch
 
                 val window = Window()
                 window.title = "Skia WinUI Sample"
+                window.systemBackdrop = MicaBackdrop()
                 layer.attachTo(window)
 
                 window.closed.add(TypedEventHandler { _, _ ->
@@ -52,74 +66,137 @@ fun main() {
     }
 }
 
-private class ClockScene : SkikoRenderDelegate, WinUIInputHandler {
+private class ClocksWinUI(
+    private val scaleProvider: () -> Float,
+    private val renderProvider: () -> GraphicsApi = { GraphicsApi.UNKNOWN },
+) : SkikoRenderDelegate, WinUIInputHandler {
+    private val typeface = FontMgr.default.makeFromFile("fonts/JetBrainsMono-Regular.ttf")
+    private val font = Font(typeface, 13f).apply {
+        edging = FontEdging.SUBPIXEL_ANTI_ALIAS
+        hinting = FontHinting.SLIGHT
+    }
+    private val paint = Paint().apply {
+        color = 0xff9BC730L.toInt()
+        mode = PaintMode.FILL
+        strokeWidth = 1f
+    }
+    private val watchFill = Paint().apply { color = 0xFFFFFFFF.toInt() }
+    private val watchStroke = Paint().apply {
+        color = Color.RED
+        mode = PaintMode.STROKE
+        strokeWidth = 1f
+    }
+    private val watchStrokeAA = Paint().apply {
+        color = 0xFF000000.toInt()
+        mode = PaintMode.STROKE
+        strokeWidth = 1f
+    }
+    private val watchFillHover = Paint().apply { color = 0xFFE4FF01.toInt() }
+    private val picturePaint = Paint()
+    private val infoFont = Font(typeface, 13f).apply {
+        edging = FontEdging.SUBPIXEL_ANTI_ALIAS
+        hinting = FontHinting.SLIGHT
+    }
+    private val infoPaint = Paint().apply {
+        color = 0xFF000000.toInt()
+        mode = PaintMode.FILL
+        strokeWidth = 1f
+    }
+
     private var frame = 0
-    private var inputSummary = "Input: move pointer or press a key"
+    private var xpos = 0
+    private var ypos = 0
 
     override fun onPointerEvent(event: WinUIPointerEvent): Boolean {
-        inputSummary = buildString {
-            append("Pointer ${event.type} id=${event.pointerId} ")
-            append("x=${event.x.toInt()} y=${event.y.toInt()} ")
-            append("device=${event.deviceType}")
-            if (event.wheelDelta != 0) append(" wheel=${event.wheelDelta}")
+        if (event.type == WinUIPointerEventType.MOVED ||
+            event.type == WinUIPointerEventType.PRESSED ||
+            event.type == WinUIPointerEventType.ENTERED
+        ) {
+            val scale = scaleProvider().coerceAtLeast(1f)
+            xpos = (event.x / scale).toInt()
+            ypos = (event.y / scale).toInt()
         }
         return false
     }
 
     override fun onKeyEvent(event: WinUIKeyEvent): Boolean {
-        inputSummary = if (event.pressed) {
-            "Key down key=${event.keyCode} scan=${event.scanCode} repeat=${event.repeatCount}"
-        } else {
-            "Key up key=${event.keyCode} scan=${event.scanCode}"
-        }
         return false
     }
 
     override fun onTextInputEvent(event: WinUITextInputEvent): Boolean {
-        inputSummary = "Text '${event.character}' code=${event.codePoint} scan=${event.scanCode} repeat=${event.repeatCount}"
         return false
     }
 
     override fun onFocusEvent(event: WinUIFocusEvent): Boolean {
-        inputSummary = "Focus ${if (event.focused) "gained" else "lost"} state=${event.focusState}"
+        if (!event.focused && event.focusState == WinUIFocusState.UNFOCUSED) {
+            xpos = 0
+            ypos = 0
+        }
         return false
     }
 
     override fun onRender(canvas: Canvas, width: Int, height: Int, nanoTime: Long) {
-        canvas.clear(Color.WHITE)
-        Paint().use { paint ->
-            paint.isAntiAlias = true
-            paint.color = Color.makeRGB(0x20, 0x78, 0xD4)
-            val radius = min(width, height) * 0.34f
-            val cx = width / 2f
-            val cy = height / 2f
-            canvas.drawCircle(cx, cy, radius, paint)
+        canvas.clear(0x00000000)
 
-            paint.color = Color.WHITE
-            for (index in 0 until 12) {
-                val angle = (index / 12.0) * 2.0 * PI
-                canvas.drawCircle(
-                    cx + (radius * 0.82f * sin(angle)).toFloat(),
-                    cy - (radius * 0.82f * cos(angle)).toFloat(),
-                    4f,
-                    paint,
+        for (x in 0..(width - 50) step 50) {
+            for (y in 20..(height - 50) step 50) {
+                val hover = xpos > x && xpos < x + 50 && ypos > y && ypos < y + 50
+                val fill = if (hover) watchFillHover else watchFill
+                val stroke = if (x > width / 2) watchStrokeAA else watchStroke
+                canvas.drawOval(Rect.makeXYWH(x + 5f, y + 5f, 40f, 40f), fill)
+                canvas.drawOval(Rect.makeXYWH(x + 5f, y + 5f, 40f, 40f), stroke)
+                var angle = 0f
+                while (angle < 2f * PI) {
+                    canvas.drawLine(
+                        (x + 25 - 17 * sin(angle)),
+                        (y + 25 + 17 * cos(angle)),
+                        (x + 25 - 20 * sin(angle)),
+                        (y + 25 + 20 * cos(angle)),
+                        stroke,
+                    )
+                    angle += (2.0 * PI / 12.0).toFloat()
+                }
+                val time = (nanoTime / 1E6) % 60000 +
+                    (x.toFloat() / width * 5000).toLong() +
+                    (y.toFloat() / width * 5000).toLong()
+
+                val angle1 = (time.toFloat() / 5000 * 2f * PI).toFloat()
+                canvas.drawLine(
+                    x + 25f,
+                    y + 25f,
+                    x + 25f - 15f * sin(angle1),
+                    y + 25f + 15 * cos(angle1),
+                    stroke,
+                )
+
+                val angle2 = (time / 60000 * 2f * PI).toFloat()
+                canvas.drawLine(
+                    x + 25f,
+                    y + 25f,
+                    x + 25f - 10f * sin(angle2),
+                    y + 25f + 10f * cos(angle2),
+                    stroke,
                 )
             }
-
-            val seconds = (nanoTime / 1_000_000_000.0) % 60.0
-            val secondAngle = seconds / 60.0 * 2.0 * PI
-            paint.strokeWidth = 5f
-            canvas.drawLine(
-                cx,
-                cy,
-                cx + (radius * 0.72f * sin(secondAngle)).toFloat(),
-                cy - (radius * 0.72f * cos(secondAngle)).toFloat(),
-                paint,
-            )
-
-            paint.color = Color.makeRGB(0x18, 0x18, 0x18)
-            canvas.drawString("Skiko WinUI DIRECT3D  frame ${frame++}", 24f, 42f, Font(), paint)
-            canvas.drawString(inputSummary, 24f, (height - 28).coerceAtLeast(58).toFloat(), Font(), paint)
         }
+
+        val text = "Frames: ${frame++}!"
+        canvas.drawString(text, xpos.toFloat(), ypos.toFloat(), font, paint)
+
+        canvas.drawString(
+            "Graphic API: ${renderProvider()}, JRE: ${System.getProperty("java.vendor")}, " +
+                System.getProperty("java.runtime.version"),
+            5f,
+            15f,
+            infoFont,
+            infoPaint,
+        )
+
+        val rectW = 100f
+        val rectH = 100f
+        val left = (width - rectW) / 2f
+        val top = (height - rectH) / 2f
+        canvas.drawLine(left, top, left + rectW, top + rectH, picturePaint)
+        canvas.drawLine(left, top + rectH, left + rectW, top, picturePaint)
     }
 }

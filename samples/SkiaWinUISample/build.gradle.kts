@@ -2,6 +2,7 @@
 
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.api.Project
 import org.gradle.api.provider.Provider
 
@@ -27,10 +28,12 @@ repositories {
 val skikoWinuiDependencyNotations = extra["skikoWinuiDependencyNotations"] as List<Any>
 val skikoWinuiRuntimeAssetsRoot = extra["skikoWinuiRuntimeAssetsRoot"] as Provider<String>
 val checkSkikoWinuiSampleRuntime = extra["checkSkikoWinuiSampleRuntime"] as (Project) -> Unit
+val javaToolchains = extensions.getByType(JavaToolchainService::class.java)
 
 dependencies {
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
     implementation(kotlin("stdlib"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2")
     skikoWinuiDependencyNotations.forEach(::implementation)
 }
 
@@ -47,8 +50,18 @@ java {
 tasks.named<JavaExec>("run") {
     group = "application"
     description = "Runs the AWT-free WinUI Skiko sample."
+    javaLauncher.set(
+        javaToolchains.launcherFor {
+            languageVersion.set(JavaLanguageVersion.of(25))
+        }
+    )
     jvmArgs(
         "--enable-native-access=ALL-UNNAMED",
+        "-Xmx512m",
+        "-XX:MaxMetaspaceSize=512m",
+        "-XX:HeapBaseMinAddress=32g",
+        "-XX:ReservedCodeCacheSize=128m",
+        "-XX:CICompilerCount=2",
         "-ea",
     )
     systemProperty("kotlin.winrt.runtimeAssetsRoot", skikoWinuiRuntimeAssetsRoot.get())

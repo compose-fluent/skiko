@@ -1,18 +1,21 @@
 package org.jetbrains.skiko.winui
 
 import microsoft.ui.xaml.FrameworkElement
+import microsoft.ui.xaml.controls.SwapChainPanel
 import org.jetbrains.skia.PixelGeometry
 import org.jetbrains.skiko.GraphicsApi
 import org.jetbrains.skiko.SkikoRenderDelegate
 
 interface WinUISkiaLayerSurface : AutoCloseable {
     val component: FrameworkElement
+    val renderPanel: SwapChainPanel
     var renderDelegate: SkikoRenderDelegate?
     var inputHandler: WinUIInputHandler?
     var accessibilityInfo: WinUIAccessibilityInfo
     var accessibilityProvider: WinUIAccessibilityProvider?
     val accessibilitySnapshot: WinUIAccessibilitySnapshot?
     val accessibilityDiagnostics: WinUIAccessibilityDiagnostics
+    val renderDiagnostics: WinUILayerRenderDiagnostics
     var renderApi: GraphicsApi
     val contentScale: Float
     val pixelGeometry: PixelGeometry

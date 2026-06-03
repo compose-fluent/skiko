@@ -17,7 +17,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
 
 - [x] Public API 只暴露 `org.jetbrains.skiko.winui.WinUISkiaLayer` 作为入口；`WinUISkiaLayerSurface` 只作为非 AWT host/scheduler 使用的 surface contract。
 - [x] V1 只支持 `GraphicsApi.DIRECT3D`。
-- [x] WinUI 渲染承载面固定为内部 `Microsoft.UI.Xaml.Controls.SwapChainPanel`；public `component` 是 `FrameworkElement` contract，当前由 `WinUISkiaHostPanel : Grid` 提供，host 内部持有 render panel。
+- [x] WinUI 渲染承载面固定为 `Microsoft.UI.Xaml.Controls.SwapChainPanel`；public `component` 是 `FrameworkElement` contract，当前由 `WinUISkiaHostPanel : Grid` 提供；public `renderPanel` 只读暴露实际绘制 panel，与原 AWT `SkiaLayer.canvas` 暴露实际绘制组件的边界保持一致。
 - [x] `kotlin-winrt` 来源固定为 `https://github.com/compose-fluent/kotlin-winrt`；默认通过 Maven Central snapshots 使用 `io.github.compose-fluent` artifacts，不复制源码、不加 submodule。调试 upstream 时可显式启用 local composite。
 - [x] WinUI 后端代码不放入、不修改 `skiko/src/awtMain`；AWT 只能作为参考。
 - [x] WinUI Windows runtime jar 独立命名为 `skiko-winui-windows.jar`，包含 WinUI-owned `skiko-windows-x64.dll`，不复用 `skiko-awt-runtime` jar。
@@ -45,7 +45,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
 
 - [x] WinUI layer API
   - `WinUISkiaLayer` 是 `winuiMain` concrete class。
-  - 已提供 `component`、`renderDelegate`、`inputHandler`、`renderApi`、`contentScale`、`pixelGeometry`、`fullscreen`、`width`、`height`、`focusState`、`requestFocus()`、`attachTo()`、`detach()`、`startFrameScheduler()`、`needRender()`、`needRedraw()`、`dispose()` / `close()`。
+  - 已提供 `component`、`renderPanel`、`renderDelegate`、`inputHandler`、`renderDiagnostics`、`renderApi`、`contentScale`、`pixelGeometry`、`fullscreen`、`width`、`height`、`focusState`、`requestFocus()`、`attachTo()`、`detach()`、`startFrameScheduler()`、`needRender()`、`needRedraw()`、`dispose()` / `close()`。
   - `WinUISkiaLayerRenderDelegate` 已提供 WinUI 版本的 logical-coordinate render wrapper。
   - `WinUIRenderDispatcher` 已承载 render request coalescing、render-time self-request deferral、dispatcher enqueue 和 close-time pending request cleanup。
   - `WinUISkiaLayer` 创建时捕获 WinUI `DispatcherQueue`；非 WinUI 线程调用 `needRender()` 只 enqueue 到该 queue，不直接执行 render。
@@ -53,7 +53,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - `WinUISkiaWindowBinding` 在 attach 时保存旧 `Window.content`，close/detach 时只在 content 仍为当前 layer component 时恢复，避免泄漏 layer component 或误删 host 新 content。
   - `SizeChanged` / `compositionScaleChanged` 已接入异步 render invalidation；event 内不同步 present，只排队到后续 dispatcher turn。
   - Layer 维护当前 render state 快照：logical size、scaled size、contentScale，用于 resize/scale invalidation 去重和 platform render 参数一致性。
-  - Layer 提供 internal render diagnostics：render version、last rendered state、pending invalidated state、last platform result、last render failure。
+  - Layer 提供 public read-only render diagnostics：render version、last rendered state、pending invalidated state、last platform result、last render failure；该 API 对齐原 Skiko AWT 侧可观测 `renderInfo` 类能力，避免下游 Compose 通过反射访问 internal getter。
 
 - [x] Render pipeline
   - `WinUISkiaLayer.update(nanoTime)` 使用 `PictureRecorder` 录制 `renderDelegate` 输出。
@@ -98,6 +98,14 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
 
 - [x] Samples
   - `samples/SkiaWinUISample` 使用 `WinUISkiaLayer` + `WinUISkiaLayerRenderDelegate`。
+  - `samples/SkiaWinUISample` 的 Clock 场景已从临时单表盘改为对齐 AWT sample 的 50px 网格时钟、hover frame 文本、render info 文本和中心 alpha-line 检查；WinUI pointer move/press/enter 更新同一套 hover 坐标。
+  - 2026-06-03 修正 Clock sample 在高 DPI 下渲染位置和鼠标位置不一致：pointer 坐标按当前 `contentScale` 归一到 render delegate 使用的 logical 坐标；中心 alpha-line 使用 logical `width` / `height`，不再二次除以 `contentScale`。
+  - 2026-06-03 Clock sample 去掉固定 `component.width/height`，改为 `HorizontalAlignment.Stretch` / `VerticalAlignment.Stretch`，让 WinUI content 填满窗口；窗口设置 `MicaBackdrop()`，Skia canvas 背景清透明以显示系统 backdrop。
+  - `samples/SkiaWinUISample` local file dependency mode 显式补 `kotlinx-coroutines-core-jvm`，避免 file dependency 丢失 `skiko-awt` 传递 runtime dependency 后在 Skiko native lazy load 时缺 `kotlinx.coroutines.GlobalScope`。
+  - `samples/SkiaWinUISample` 编译 target 保持 JVM 22；`run` task 使用 JDK 25 launcher，以匹配当前 `kotlin-winrt` runtime classfile 69。
+  - `samples/SkiaWinUISample` 使用显式 `Application()`，与通过验证的 smoke 默认路径一致；不要求应用手动调用 `Library.staticLoad()`。
+  - `WinUISkiaLayerRenderDelegate` 不再在 `onRender()` 末尾无条件 `needRender()`；持续动画由 `WinUIFrameScheduler` 显式驱动，避免 render-time self-request 每帧走 `DispatcherQueue.tryEnqueue` 并创建 WinRT callback/upcall stub，导致 JVM CodeCache full 后 `Microsoft.UI.Xaml.dll` fail-fast。
+  - 2026-06-03 复刻 AWT `ClocksAwt` 时发现 WinUI sample 中调用 `org.jetbrains.skiko.currentSystemTheme` 会复现 `0xC000027B` fail-fast；事件日志显示 `CoreMessagingXP.dll` fail-fast、WER 二级签名为 `combase.dll` / `0x8007000e`。二分确认直接绘制 render info 且不读取 `currentSystemTheme` 时稳定；因此当前 sample 保留网格时钟、hover frame 文本、render info 文本和中心 alpha-line 检查，但 render info 暂不显示 system theme。当前判断为 WinUI sample 复用 AWT/common theme API 的兼容问题，不作为 kotlin-winrt upstream ABI issue 记录。
   - `samples/SkiaMultiplatformSample` 已有 `winuiMain` / custom `winuiJvm` compilation；WinUI host 在 `winuiMain`，JVM bootstrap 在 `winuiJvmMain`。
   - Multiplatform sample 仍有 KGP source-set tree warning，功能可编译但结构未最终化。
 
@@ -291,7 +299,8 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
 ## Validation Matrix
 
 - [x] `:skiko-winui:compileKotlinWinuiJvm :skiko-winui:compileTestKotlinWinuiJvm :skiko-winui:checkWinuiAwtFreeBoundary`
-  - 最近结果：2026-06-01 通过。命令：`.\.agent_scripts\run_windows_gradle.ps1 winui-core-check`。
+  - 最近结果：2026-06-03 通过。命令：`.\.agent_scripts\run_windows_gradle.ps1 winui-core-check`。
+  - 2026-06-03 公开 `renderPanel` / `renderDiagnostics` 后复跑通过；`validateCompileKotlinWinuiJvmWinRtAuthoredCandidates` 仍运行并通过。仅保留既有 projection-safe cast warnings。
   - 2026-06-01 issue 复核后复跑仍通过。
   - 2026-06-01 restore-only projection intrinsic import cleanup 后复跑仍通过。
   - 2026-06-01 后续确认：`publishSkikoWinuiToMavenLocal` 路径中 `validateCompileKotlinWinuiJvmWinRtAuthoredCandidates` 已运行并通过。
@@ -300,7 +309,9 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 临时说明：脚本中剩余 cleanup 是本机旧构建产物清理，不再作为待修复 issue 追踪。
 
 - [x] `:skiko-winui:runWinuiJvmSmoke -Pskiko.winui.smokeArgs=--use-layer-attach`
-  - 最近结果：2026-06-01 通过。命令：`.\.agent_scripts\run_windows_gradle.ps1 winui-smoke`。
+  - 最近结果：2026-06-03 通过。命令：`.\.agent_scripts\run_windows_gradle.ps1 winui-smoke`。
+  - 2026-06-03 公开 `renderPanel` / `renderDiagnostics` 后复跑通过。
+  - 2026-06-03 移除 `WinUISkiaLayerRenderDelegate` render-time self-request 后复跑通过；smoke 仍覆盖两次 render、resize 和 automation peer hit-test。
   - 2026-06-01 issue/native-crash 复核后复跑仍通过。
   - 2026-06-01 restore-only projection intrinsic import cleanup 后复跑仍通过。
   - 已验证 `WinUISkiaLayer()` 创建、WinUI host、320x240 render、480x360 resize render、custom automation peer dispatch、`getClassName()` 为 `WinUISkiaLayer`、`rootPeer.getChildren()` child peer 返回、first child / next sibling navigation、`getPeerFromPoint(Point(24f, 24f))` 返回 `Smoke button`。
@@ -314,8 +325,12 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - `authored-metadata.tsv` 当前只导出 public `WinUISkiaHostPanel`；internal `WinUISkiaAutomationPeer` 仍生成 CCW type details，用于 `onCreateAutomationPeer()` 返回给 WinUI。
 
 - [x] `samples/SkiaWinUISample:compileKotlin`
-  - 最近结果：通过。
+  - 最近结果：2026-06-03 通过。
   - 覆盖 standalone WinUI sample 消费 `WinUISkiaLayerRenderDelegate`。
+  - 2026-06-03 WinUI Clock 场景改为 AWT-style grid clocks 后，`.\gradlew.bat -p samples\SkiaWinUISample --console=plain compileKotlin` 通过。
+  - 2026-06-03 `.\gradlew.bat --no-daemon -p samples\SkiaWinUISample --console=plain run` 已启动并保持 `Skia WinUI Sample` 窗口运行；Mica/stretch 修正版窗口 PID 为 `11048`，进程命令行为当前 `SkiaWinUISample.AppKt`，未出现新的 `java.exe` WER dump。GDI `CopyFromScreen` 对 WinUI/DirectComposition surface 截图不可靠，未作为画面验证依据。
+  - 2026-06-03 复刻 AWT paragraph/picture/theme 路径时，run 复现 `0xC000027B`：Application event log 显示 faulting module `CoreMessagingXP.dll`，WER 二级签名 `combase.dll` / `0x8007000e`；本机只有商店版 `WinDbgX.exe`，命令行 dump 分析未返回可用栈。二分后确认 `drawString + currentSystemTheme` 也会失败，直接 `drawString` 且不读取 theme 稳定；最终版本保留 AWT-style grid clocks 和 render info，但暂不显示 system theme。
+  - 诊断结论：smoke 能显示而 Clock 崩溃，是因为 Clock 使用 `WinUISkiaLayerRenderDelegate` + `WinUIFrameScheduler` 持续动画；旧 wrapper 每帧在 render 内再次 `needRender()`，触发 render-time deferred enqueue。smoke 只短时渲染两帧，所以没有耗尽 JVM CodeCache。
 
 - [x] `samples/SkiaMultiplatformSample:compileWinuiJvmKotlinAwt`
   - 最近结果：通过。

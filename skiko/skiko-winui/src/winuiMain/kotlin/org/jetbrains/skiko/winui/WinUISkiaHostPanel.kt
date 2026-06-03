@@ -7,7 +7,7 @@ import windows.foundation.Rect
 import windows.foundation.Size
 
 class WinUISkiaHostPanel : Grid() {
-    internal val renderPanel: SwapChainPanel = SwapChainPanel()
+    val renderPanel: SwapChainPanel = SwapChainPanel()
     internal var automationPeerCreateCount: Int = 0
         private set
     private var layer: WinUISkiaLayer? = null

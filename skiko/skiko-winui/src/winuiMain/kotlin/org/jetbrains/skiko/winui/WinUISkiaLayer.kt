@@ -30,7 +30,8 @@ class WinUISkiaLayer(
 
     internal val dispatcherQueue: DispatcherQueue = DispatcherQueue.getForCurrentThread()
     private val hostPanel = WinUISkiaHostPanel()
-    private val panel = hostPanel.renderPanel
+    override val renderPanel = hostPanel.renderPanel
+    private val panel = renderPanel
     private val platformInterop = WinUISkiaLayerPlatformInterop(this, panel)
     private val inputInterop = WinUIInputInterop(this, panel)
     private val accessibilityInterop = WinUIAccessibilityInterop(hostPanel)
@@ -275,7 +276,7 @@ class WinUISkiaLayer(
     internal val automationPeerCreateCount: Int
         get() = hostPanel.automationPeerCreateCount
 
-    internal val renderDiagnostics: WinUILayerRenderDiagnostics
+    override val renderDiagnostics: WinUILayerRenderDiagnostics
         get() = WinUILayerRenderDiagnostics(
             renderVersion = renderVersion,
             lastRenderedState = lastRenderedState,
