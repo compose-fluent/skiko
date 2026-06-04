@@ -1,10 +1,8 @@
 package SkiaWinUISample
 
-import io.github.composefluent.winrt.runtime.RuntimeScope
-import io.github.composefluent.winrt.runtime.WinRtWindowsAppSdkBootstrap
+import microsoft.ui.xaml.Application
 import microsoft.ui.xaml.HorizontalAlignment
 import microsoft.ui.xaml.VerticalAlignment
-import microsoft.ui.xaml.Application
 import microsoft.ui.xaml.Window
 import microsoft.ui.xaml.media.MicaBackdrop
 import org.jetbrains.skia.Canvas
@@ -33,38 +31,41 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 fun main() {
-    WinRtWindowsAppSdkBootstrap.initialize().use {
-        RuntimeScope.initializeSingleThreaded().use {
-            Application.start {
-                val application = Application()
-                val layer = WinUISkiaLayer()
-                val scene = ClocksWinUI(
-                    scaleProvider = { layer.contentScale },
-                    renderProvider = { layer.renderApi },
-                )
-                layer.renderDelegate = WinUISkiaLayerRenderDelegate(layer, scene)
-                layer.inputHandler = scene
-                layer.component.horizontalAlignment = HorizontalAlignment.Stretch
-                layer.component.verticalAlignment = VerticalAlignment.Stretch
+    Application.start {
+        val application = Application()
+        activeApplication = application
+        val skiaLayer = WinUISkiaLayer()
+        val scene = ClocksWinUI(
+            scaleProvider = { skiaLayer.contentScale },
+            renderProvider = { skiaLayer.renderApi },
+        )
+        skiaLayer.renderDelegate = WinUISkiaLayerRenderDelegate(skiaLayer, scene)
+        skiaLayer.inputHandler = scene
+        skiaLayer.component.horizontalAlignment = HorizontalAlignment.Stretch
+        skiaLayer.component.verticalAlignment = VerticalAlignment.Stretch
 
-                val window = Window()
-                window.title = "Skia WinUI Sample"
-                window.systemBackdrop = MicaBackdrop()
-                layer.attachTo(window)
+        val winuiWindow = Window()
+        winuiWindow.title = "Skia WinUI Sample"
+        winuiWindow.systemBackdrop = MicaBackdrop()
+        skiaLayer.attachTo(winuiWindow)
 
-                window.closed.add(TypedEventHandler { _, _ ->
-                    layer.close()
-                    application.exit()
-                })
+        winuiWindow.closed.add(TypedEventHandler { _, _ ->
+            skiaLayer.close()
+            application.exit()
+        })
 
-                window.activate()
-                layer.needRender(throttledToVsync = false)
-                layer.requestFocus()
-                layer.startFrameScheduler()
-            }
-        }
+        activeWindow = winuiWindow
+        activeLayer = skiaLayer
+        winuiWindow.activate()
+        skiaLayer.needRender(throttledToVsync = false)
+        skiaLayer.requestFocus()
+        skiaLayer.startFrameScheduler()
     }
 }
+
+private var activeApplication: Application? = null
+private var activeWindow: Window? = null
+private var activeLayer: WinUISkiaLayer? = null
 
 private class ClocksWinUI(
     private val scaleProvider: () -> Float,

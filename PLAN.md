@@ -101,9 +101,12 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - `samples/SkiaWinUISample` 的 Clock 场景已从临时单表盘改为对齐 AWT sample 的 50px 网格时钟、hover frame 文本、render info 文本和中心 alpha-line 检查；WinUI pointer move/press/enter 更新同一套 hover 坐标。
   - 2026-06-03 修正 Clock sample 在高 DPI 下渲染位置和鼠标位置不一致：pointer 坐标按当前 `contentScale` 归一到 render delegate 使用的 logical 坐标；中心 alpha-line 使用 logical `width` / `height`，不再二次除以 `contentScale`。
   - 2026-06-03 Clock sample 去掉固定 `component.width/height`，改为 `HorizontalAlignment.Stretch` / `VerticalAlignment.Stretch`，让 WinUI content 填满窗口；窗口设置 `MicaBackdrop()`，Skia canvas 背景清透明以显示系统 backdrop。
-  - `samples/SkiaWinUISample` local file dependency mode 显式补 `kotlinx-coroutines-core-jvm`，避免 file dependency 丢失 `skiko-awt` 传递 runtime dependency 后在 Skiko native lazy load 时缺 `kotlinx.coroutines.GlobalScope`。
-  - `samples/SkiaWinUISample` 编译 target 保持 JVM 22；`run` task 使用 JDK 25 launcher，以匹配当前 `kotlin-winrt` runtime classfile 69。
-  - `samples/SkiaWinUISample` 使用显式 `Application()`，与通过验证的 smoke 默认路径一致；不要求应用手动调用 `Library.staticLoad()`。
+  - `samples/SkiaWinUISample` 默认通过 Maven 坐标消费 `io.github.compose-fluent:skiko-winui`、`io.github.compose-fluent:skiko-winui-windows` 和 `io.github.compose-fluent:winrt-runtime-jvm`；`skiko.winui.dependencyMode=local` 也走同一组 Maven 坐标并优先从 `mavenLocal()` 解析本地发布物，不再使用 `files(...)` 直接依赖 jar。
+  - `samples/SkiaWinUISample` 已按新版 kotlin-winrt README 切到最终 app module 模型：应用 `io.github.composefluent.winrt` plugin，配置 `winRt { application { } }`，启动入口使用 `Application.start { ... }` callback 直接创建并激活 WinUI `Window`；不再由用户代码手动调用 `RuntimeScope.initializeSingleThreaded()` 或 Windows App SDK bootstrap。`Application` subclass / `onLaunched(...)` 路径需要 app module 自己生成 authoring metadata，当前 packaged/app subclass 路径尚未验证，本轮继续只走 unpackaged app host。
+  - `samples/SkiaWinUISample` 编译 target 改为 JVM 25，以匹配新版 kotlin-winrt Gradle plugin 自动注入的 `-Xjdk-release=25` / FFM runtime 要求；本机验证使用 sibling `kotlin-winrt` Gradle 9.4 wrapper，因为 root Gradle 8.13 不能在 JDK 25 下运行。
+  - `samples/SkiaWinUISample` 的 Gradle `run` task 已禁用并提示使用 `runWinRtApplicationHost`；按 README，WinUI app 通过 kotlin-winrt 生成的 native application host 启动，由 host 负责 Windows App SDK deployment 后再进入 JVM main。
+  - `samples/SkiaWinUISample` 不再手写 sample runtime identity；WinUI runtime asset staging 应通过 Maven artifact/metadata 和 kotlin-winrt dependency identity 传播完成。旧 `files(...)` local 模式会丢 Gradle variant/identity，已移除。
+  - `samples/SkiaWinUISample` 使用显式 `Application.start` callback 建窗，与新版 kotlin-winrt WinUI unpackaged host entry point 对齐；不要求应用手动调用 `Library.staticLoad()`。
   - `WinUISkiaLayerRenderDelegate` 不再在 `onRender()` 末尾无条件 `needRender()`；持续动画由 `WinUIFrameScheduler` 显式驱动，避免 render-time self-request 每帧走 `DispatcherQueue.tryEnqueue` 并创建 WinRT callback/upcall stub，导致 JVM CodeCache full 后 `Microsoft.UI.Xaml.dll` fail-fast。
   - 2026-06-03 复刻 AWT `ClocksAwt` 时发现 WinUI sample 中调用 `org.jetbrains.skiko.currentSystemTheme` 会复现 `0xC000027B` fail-fast；事件日志显示 `CoreMessagingXP.dll` fail-fast、WER 二级签名为 `combase.dll` / `0x8007000e`。二分确认直接绘制 render info 且不读取 `currentSystemTheme` 时稳定；因此当前 sample 保留网格时钟、hover frame 文本、render info 文本和中心 alpha-line 检查，但 render info 暂不显示 system theme。当前判断为 WinUI sample 复用 AWT/common theme API 的兼容问题，不作为 kotlin-winrt upstream ABI issue 记录。
   - `samples/SkiaMultiplatformSample` 已有 `winuiMain` / custom `winuiJvm` compilation；WinUI host 在 `winuiMain`，JVM bootstrap 在 `winuiJvmMain`。
@@ -329,8 +332,15 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - `authored-metadata.tsv` 当前只导出 public `WinUISkiaHostPanel`；internal `WinUISkiaAutomationPeer` 仍生成 CCW type details，用于 `onCreateAutomationPeer()` 返回给 WinUI。
 
 - [x] `samples/SkiaWinUISample:compileKotlin`
-  - 最近结果：2026-06-03 通过。
+  - 最近结果：2026-06-04 通过。
   - 覆盖 standalone WinUI sample 消费 `WinUISkiaLayerRenderDelegate`。
+  - 2026-06-04 按新版 kotlin-winrt snapshot/README 迁移 sample：`.\gradlew.bat` root wrapper 在 JDK 25 下不可用，因此验证借用 `..\kotlin-winrt\gradlew.bat` Gradle 9.4 wrapper 并设置 `JAVA_HOME=C:\Program Files\Microsoft\jdk-25.0.3.9-hotspot`。
+  - 2026-06-04 task 注册验证通过。命令：`..\kotlin-winrt\gradlew.bat --no-daemon -p samples\SkiaWinUISample --console=plain tasks --all`。结果：通过，列出 `generateWinRtApplicationIdentity`、`stageWinRtRuntimeAssets`、`buildWinRtAuthoringHost`、`buildWinRtApplicationHost`、`runWinRtApplicationHost`。
+  - 2026-06-04 默认 Maven 坐标模式 compile 验证通过。命令：`..\kotlin-winrt\gradlew.bat --no-daemon -p samples\SkiaWinUISample --console=plain compileKotlin`。结果：通过；`generateWinRtProjections` 走 application-packaging-only 路径，没有复现 `DesktopAcrylicController.SetTarget(CompositionTarget)` unsupported ABI metadata。
+  - 2026-06-04 显式 local 模式 compile 验证通过。命令：`..\kotlin-winrt\gradlew.bat --no-daemon -p samples\SkiaWinUISample --console=plain "-Pskiko.winui.dependencyMode=local" compileKotlin`。结果：通过；local 模式现在同样走 Maven 坐标并优先由 `mavenLocal()` 解析，不再直接 file 依赖 jar。
+  - 2026-06-04 unpackaged native host 验证：`..\kotlin-winrt\gradlew.bat --no-daemon -p samples\SkiaWinUISample --console=plain runWinRtApplicationHost` 返回成功；随后直接启动生成的 `samples\SkiaWinUISample\build\kotlin-winrt\application-host\bin\SkiaWinUISample.exe` 并枚举 Win32 顶层窗口，结果：PID `44200`、`MainWindowHandle=399044`、`MainWindowTitle=Skia WinUI Sample`、`Responding=True`。当前保留该 sample 窗口供人工查看。
+  - 2026-06-04 曾发现 `Application.start { SkiaWinUISampleApp() }` + `onLaunched(...)` 在 sample app 中没有创建窗口；诊断结果是 sample 走 application-packaging-only 时 `authored-candidates.tsv` / `authored-metadata.tsv` 为空，Application subclass override 没有进入 authoring TypeDetails，WinUI 不会回调 `onLaunched`。当前 unpackaged 路径改为 `Application.start` callback 内直接建窗；packaged app / Application subclass authoring 路径暂未验证。
+  - 2026-06-04 迁移过程中曾复现 `Activation factory lookup for Microsoft.UI.Xaml.Application failed: 没有注册类 (0x80040154)`；原因是旧 sample local `files(...)` dependency 不能携带 `skiko-winui` 的 Gradle variant / kotlin-winrt NuGet identity，导致 app host 的 `runtime-assets` 缺少 WindowsAppSDK DLL/PRI。处理方式已改为 local/maven 两种模式都通过 Maven 坐标消费发布物；不再直接 file 依赖 jar，也不再手写 sample runtime identity。
   - 2026-06-03 `SKIKO-004` 直接 sample 复测：`.\gradlew.bat -p samples\SkiaWinUISample run --no-configuration-cache --no-daemon` 持续运行到 90 秒工具超时，没有快速 native crash；符合交互式 sample 启动后常驻行为。
   - 2026-06-03 WinUI Clock 场景改为 AWT-style grid clocks 后，`.\gradlew.bat -p samples\SkiaWinUISample --console=plain compileKotlin` 通过。
   - 2026-06-03 `.\gradlew.bat --no-daemon -p samples\SkiaWinUISample --console=plain run` 已启动并保持 `Skia WinUI Sample` 窗口运行；Mica/stretch 修正版窗口 PID 为 `11048`，进程命令行为当前 `SkiaWinUISample.AppKt`，未出现新的 `java.exe` WER dump。GDI `CopyFromScreen` 对 WinUI/DirectComposition surface 截图不可靠，未作为画面验证依据。
