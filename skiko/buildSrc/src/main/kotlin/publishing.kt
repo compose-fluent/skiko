@@ -289,6 +289,10 @@ private fun SkikoPublishingContext.configureAwtPublicationConstraints() {
     // This will automatically generate both POM dependencyManagement and Gradle Module Metadata dependencyConstraints
     listOf("awtApiElements", "awtRuntimeElements").forEach { configName ->
         project.configurations.findByName(configName)?.let { config ->
+            if (!config.isCanBeDeclared) {
+                return@let
+            }
+
             // Note: "!!" suffix is used to enforce a strict version
             // See https://docs.gradle.org/current/userguide/dependency_versions.html#sec:rich-version-constraints
 
