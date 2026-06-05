@@ -4,16 +4,15 @@ on:
   push:
     branches:
       - winui_dev
-    paths:
-      - '.github/workflows/publish-skiko-winui.yml'
-      - 'build.gradle.kts'
-      - 'gradle.properties'
-      - 'settings.gradle.kts'
-      - 'dependencies.toml'
-      - 'skiko/gradle.properties'
-      - 'skiko/skiko-winui/**'
-      - 'skiko/src/commonMain/cpp/**'
-      - 'skiko/src/jvmMain/cpp/**'
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.MD'
+      - '**/*.log'
+      - '**/*.iml'
+      - '.idea/**'
+      - '.run/**'
+      - 'docs/**'
+      - 'samples/**'
   workflow_dispatch:
 
 permissions:
