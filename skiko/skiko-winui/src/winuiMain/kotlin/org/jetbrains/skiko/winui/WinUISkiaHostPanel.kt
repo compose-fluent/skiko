@@ -13,6 +13,7 @@ class WinUISkiaHostPanel : Grid() {
     private var layer: WinUISkiaLayer? = null
 
     init {
+        renderPanel.opacity = 0.999999
         children?.add(renderPanel)
     }
 

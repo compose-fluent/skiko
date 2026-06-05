@@ -277,7 +277,7 @@ private class WinUITextCompositionInterop(
         if (isClosed) {
             return
         }
-        val context = ensureEditContext() ?: return
+        val context = editContext ?: return
         if (focused) {
             context.notifyFocusEnter()
         } else {

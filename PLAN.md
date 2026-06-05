@@ -38,6 +38,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - `kotlin-winrt` Maven plugin 当前默认使用 `io.github.compose-fluent:winrt-gradle-plugin:0.1.0-SNAPSHOT`。
   - `skiko.winui.useKotlinWinRtComposite=true` 可显式启用 sibling checkout/composite，用于调试 unpublished kotlin-winrt changes；默认不再要求 `../kotlin-winrt` 存在。
   - 当前 kotlin-winrt plugin/artifacts 需要 JDK 25 加载；root Gradle 8.13 不能在 JDK 25 下编译 Kotlin DSL，CI 使用 Gradle 9.4.0。
+  - 2026-06-05 root、`dependencies.toml`、`skiko/buildSrc` 和 samples 的 Kotlin Gradle Plugin / stdlib 版本已升到 `2.4.0`；新版 kotlin-winrt compiler plugin 的 `ExtensionPointDescriptor` 缺类问题已解除。
   - 最近 projection 生成结果：2026-05-22 通过，命令为 `E:\Documents\AndroidStudioProjects\kotlin-winrt\gradlew.bat -p E:\Documents\AndroidStudioProjects\compose-fluent-skiko :skiko-winui:generateWinRtProjections`，`JAVA_HOME=C:\Program Files\Microsoft\jdk-25.0.3.9-hotspot`。
   - 2026-05-31 已确认本地 `kotlin-winrt` HEAD 和 `origin/master` 都是 `3a122ce21b43d0f8ff62199b275275cc1d483a7f`；该提交把 projected struct 参数调用改为 sized shape（例如 `Struct8_4`），已解除 Skiko `GetPeerFromPointCore(Point)` ABI blocker。
   - 新版 kotlin-winrt generator worker 依赖通过 Maven artifact 解析；composite build 只作为显式 upstream debug path。
@@ -70,6 +71,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - key/text input event 已携带 `WinUIKeyModifiers`；`WinUIInputInterop` 维护内部 keyboard modifier state，pointer event 继续使用 WinUI routed event 的 `keyModifiers`。
   - pointer event 已携带 frame id、contact rect、pressure、orientation、tilt、twist、primary/in-range/canceled、horizontal wheel 和 pen barrel/eraser/inverted 状态。
   - text input 已接 `CoreTextEditContext`：focus enter/leave、text/selection/layout request、text/selection update、composition started/updated/committed/canceled。
+  - 2026-06-05 `WinUITextCompositionInterop.onFocusChanged()` 不再主动创建 `CoreTextEditContext`；只有已有 text edit context 时才通知 focus enter/leave，避免 Clock/非文本场景点击窗口时触发 TextInputFramework fail-fast。
   - `WinUISkiaLayerSurface` 已提供 `updateTextInputState()`、`updateTextInputLayout()`、`notifyTextInputLayoutChanged()`，让宿主同步真实 text store、selection 和候选窗布局。
   - `WinUITextCompositionEvent`、`WinUITextRange`、`WinUITextLayoutBounds` 位于 `winuiMain`，`winui-jvm` / `winui-mingw` 共用同一 text/IME contract。
 
@@ -101,6 +103,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - `samples/SkiaWinUISample` 的 Clock 场景已从临时单表盘改为对齐 AWT sample 的 50px 网格时钟、hover frame 文本、render info 文本和中心 alpha-line 检查；WinUI pointer move/press/enter 更新同一套 hover 坐标。
   - 2026-06-03 修正 Clock sample 在高 DPI 下渲染位置和鼠标位置不一致：pointer 坐标按当前 `contentScale` 归一到 render delegate 使用的 logical 坐标；中心 alpha-line 使用 logical `width` / `height`，不再二次除以 `contentScale`。
   - 2026-06-03 Clock sample 去掉固定 `component.width/height`，改为 `HorizontalAlignment.Stretch` / `VerticalAlignment.Stretch`，让 WinUI content 填满窗口；窗口设置 `MicaBackdrop()`，Skia canvas 背景清透明以显示系统 backdrop。
+  - 2026-06-05 Clock sample resize/backdrop 修复保留为最小改动：`WinUISkiaHostPanel` 给内部 `SwapChainPanel` 设置 `opacity = 0.999999`，阻止大面积 fully-opaque swapchain element 在 resize 后进入忽略 premultiplied alpha 的独立合成路径；用户复核恢复正常。
   - `samples/SkiaWinUISample` 默认通过 Maven 坐标消费 `io.github.compose-fluent:skiko-winui`、`io.github.compose-fluent:skiko-winui-windows` 和 `io.github.compose-fluent:winrt-runtime-jvm`；`skiko.winui.dependencyMode=local` 也走同一组 Maven 坐标并优先从 `mavenLocal()` 解析本地发布物，不再使用 `files(...)` 直接依赖 jar。
   - `samples/SkiaWinUISample` 已按新版 kotlin-winrt README 切到最终 app module 模型：应用 `io.github.composefluent.winrt` plugin，配置 `winRt { application { } }`，启动入口使用 `Application.start { ... }` callback 直接创建并激活 WinUI `Window`；不再由用户代码手动调用 `RuntimeScope.initializeSingleThreaded()` 或 Windows App SDK bootstrap。`Application` subclass / `onLaunched(...)` 路径需要 app module 自己生成 authoring metadata，当前 packaged/app subclass 路径尚未验证，本轮继续只走 unpackaged app host。
   - `samples/SkiaWinUISample` 编译 target 改为 JVM 25，以匹配新版 kotlin-winrt Gradle plugin 自动注入的 `-Xjdk-release=25` / FFM runtime 要求；本机验证使用 sibling `kotlin-winrt` Gradle 9.4 wrapper，因为 root Gradle 8.13 不能在 JDK 25 下运行。
