@@ -47,8 +47,10 @@ if (settingsFlag("skiko.winui.useKotlinWinRtComposite")) {
     }
     includeBuild(kotlinWinRtBuild)
 }
-includeBuild("samples/SkiaAwtSample")
-includeBuild("samples/SkiaWinUISample")
+if (!settingsFlag("skiko.winui.skipSamples")) {
+    includeBuild("samples/SkiaAwtSample")
+    includeBuild("samples/SkiaWinUISample")
+}
 if (!settingsFlag("skiko.winui.skipSkikoComposite")) {
     includeBuild("skiko")
 }

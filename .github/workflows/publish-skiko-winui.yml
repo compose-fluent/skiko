@@ -108,6 +108,7 @@ jobs:
               -Pskiko.winui.jvmTarget=25 \
               -Pskiko.winui.jvmToolchain=25 \
               -Pskiko.winui.mingw.enabled=false \
+              -Pskiko.winui.skipSamples=true \
               :skiko-winui:publishSkikoWinuiToMavenLocal && exit 0
             if [ "$attempt" = "3" ]; then
               exit 1
@@ -131,6 +132,7 @@ jobs:
               -Pskiko.winui.jvmTarget=25 \
               -Pskiko.winui.jvmToolchain=25 \
               -Pskiko.winui.mingw.enabled=false \
+              -Pskiko.winui.skipSamples=true \
               :skiko-winui:publishSkikoWinuiToMavenCentral && exit 0
             if [ "$attempt" = "3" ]; then
               exit 1
