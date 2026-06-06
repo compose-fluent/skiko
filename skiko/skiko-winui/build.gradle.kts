@@ -41,12 +41,6 @@ val winuiWindowsAppSdkVersion = providers.gradleProperty("skiko.winui.windowsApp
     .orElse("2.1.3")
 val winuiWindowsSdkVersion = providers.gradleProperty("skiko.winui.windowsSdkVersion")
     .orElse("10.0.26100.0")
-val winuiWindowsSdkProjectionVersion = winuiWindowsSdkVersion.zip(kotlinWinRtVersion) { sdkVersion, winrtVersion ->
-    if (winrtVersion.endsWith("-SNAPSHOT")) "$sdkVersion-kotlin-winrt-$winrtVersion" else sdkVersion
-}
-val winuiWindowsAppSdkProjectionVersion = winuiWindowsAppSdkVersion.zip(kotlinWinRtVersion) { appSdkVersion, winrtVersion ->
-    if (winrtVersion.endsWith("-SNAPSHOT")) "$appSdkVersion-kotlin-winrt-$winrtVersion" else appSdkVersion
-}
 val skikoVersion = providers.gradleProperty("skiko.version")
     .orElse("0.0.0-SNAPSHOT")
 val winuiMingwEnabled = providers.gradleProperty("skiko.winui.mingw.enabled")
@@ -187,8 +181,6 @@ kotlin {
                 } else {
                     implementation("${kotlinWinRtGroup.get()}:winrt-runtime:${kotlinWinRtVersion.get()}")
                 }
-                implementation("${kotlinWinRtGroup.get()}:winrt-projections-windows-sdk:${winuiWindowsSdkProjectionVersion.get()}")
-                implementation("${kotlinWinRtGroup.get()}:winrt-projections-windows-app-sdk:${winuiWindowsAppSdkProjectionVersion.get()}")
             }
         }
         val winuiMain by creating {
@@ -253,8 +245,10 @@ tasks.named<Jar>("winuiJvmJar") {
 }
 
 extensions.configure<io.github.composefluent.winrt.gradle.WinRtExtension>("winRt") {
-    windowsSdk(winuiWindowsSdkVersion.get(), includeExtensions = false)
-    nugetPackage("Microsoft.WindowsAppSDK", winuiWindowsAppSdkVersion.get())
+    windowsSdk(winuiWindowsSdkVersion.get(), includeExtensions = false, generateProjection = true)
+    nugetPackage("Microsoft.WindowsAppSDK", winuiWindowsAppSdkVersion.get()) {
+        generateProjection = true
+    }
     winuiProjectionTypes.forEach(::type)
 }
 
