@@ -78,7 +78,7 @@ jobs:
           path: |
             ${{ runner.temp }}\nuget-packages
             ~\.gradle\caches\kotlin-winrt\nuget
-          key: nuget-${{ runner.os }}-Microsoft.WindowsAppSDK-1.8.260416003
+          key: nuget-${{ runner.os }}-Microsoft.WindowsAppSDK-2.1.3
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Setup Gradle

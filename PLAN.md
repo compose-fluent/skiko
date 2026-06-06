@@ -133,6 +133,8 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-05 run `27010905439` 已越过 Skia 下载，失败在 publish root build 配置 `samples/SkiaWinUISample` 的 buildscript classpath；发布 `skiko-winui` 不需要配置 sample included builds。已新增 `skiko.winui.skipSamples` settings flag，并让 publish CI 的 root Gradle 命令传入 `-Pskiko.winui.skipSamples=true`。
   - 2026-06-05 本地验证 `skiko.winui.skipSamples` 通过。命令：`$env:JAVA_HOME='C:\Program Files\Microsoft\jdk-25.0.3.9-hotspot'; ..\kotlin-winrt\gradlew.bat --no-daemon --stacktrace --console=plain -p . --no-configuration-cache --max-workers=1 "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" "-Pskiko.winui.mingw.enabled=false" "-Pskiko.winui.skipSamples=true" :skiko-winui:tasks --all`。结果：通过，未配置 sample buildscript。
   - 2026-06-05 run `27011274321` 通过：`Download Skia Windows dependency`、`Verify skiko-winui publish locally` 和 `Publish skiko-winui` 均成功，确认黑名单 trigger 与 sample-skip publish CI 均可用。
+  - 2026-06-06 run `27050508896` 由提交 `2949d507` 触发，失败在 `Verify skiko-winui publish locally` 的 `:skiko-winui:compileWinuiJvmNativeWindowsX64`：干净 CI 环境下 `generateWinRtProjections` 不再安装 Windows App SDK NuGet include，导致 `microsoft.ui.xaml.media.dxinterop.h` 找不到。
+  - 2026-06-06 已修正 JVM native helper header 解析：新增 `resolveWinuiJvmNativeWindowsAppSdk` 任务，独立安装 `Microsoft.WindowsAppSDK` NuGet 到模块 `build/tmp/compileWinuiJvmNativeWindowsX64/nuget-install`，从 `Microsoft.WindowsAppSDK.WinUI` transitive package 取 `dxinterop` header；不恢复 app staging / packaged app 模式。workflow NuGet cache key 同步为 `Microsoft.WindowsAppSDK-2.1.3`。
   - `skiko-winui` Maven 主入口坐标改为 `io.github.compose-fluent:skiko-winui`，Windows runtime 为 `io.github.compose-fluent:skiko-winui-windows`；默认版本从上游 `skiko/gradle.properties` 的 `deploy.version` 派生，非 release 默认为 `-SNAPSHOT`。
   - 2026-06-03 针对 compose-winui `SKIKO-006`，确认仅在 POM/Gradle dependency 上 exclude `org.jetbrains.skiko:skiko-awt` 不够：`org.jetbrains.skiko:skiko` 的 JVM variant 会通过 Gradle module metadata `available-at` 重定向到 `skiko-awt`。当前处理不拆上游 artifact，而是在 `skiko-winui` 的 `winuiJvmJar` 构建时复用现有 Skiko JVM API jar，内嵌 `org.jetbrains.skia` 与排除 AWT/Swing/Desktop surface 后的 shared `org.jetbrains.skiko` API 类；发布 POM 不再声明会触发 `skiko-awt` variant 重定向的 `org.jetbrains.skiko:skiko` 传递依赖。
   - 2026-06-03 针对 compose-winui `SKIKO-004`，`WinUISkiaLayer` 在未挂到 WinUI host / 未 Loaded 前不再进入 platform render 或启动 standalone frame scheduler；`attachTo(Window)` / `hostWinUISkiaLayer` 后仍允许原有 sample 在 `activate()` callback 内请求 render 和启动 scheduler，避免把正常 WinUI Window attach 路径误判为 unattached surface。Loaded/Unloaded 事件维护 Kotlin 侧 host-loaded flag，Unloaded 时停止 scheduler 并把后续 render 请求留到重新 host 后再处理。
@@ -365,8 +367,9 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 已知 warning：KGP reports `winuiMain` / `commonMain` source-set tree mismatch。
 
 - [x] `:skiko-winui:compileWinuiJvmNativeWindowsX64`
-  - 最近结果：通过。
+  - 最近结果：2026-06-06 通过。
   - 覆盖 WinUI JVM native helper DLL。
+  - 2026-06-06 针对 CI run `27050508896` 的干净环境失败复测通过。命令：`$env:JAVA_HOME='C:\Program Files\Microsoft\jdk-25.0.3.9-hotspot'; $env:PATH="$env:JAVA_HOME\bin;$env:PATH"; ..\kotlin-winrt\gradlew.bat --no-daemon --console=plain -p . "-Pskiko.winui.skipSkikoComposite=true" "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" "-Pskiko.winui.mingw.enabled=false" "-Pskiko.winui.localSkikoJar=skiko/build/libs/skiko-awt-0.0.0-SNAPSHOT.jar" "-Pskiko.winui.vsPath=D:\Program Files\Microsoft Visual Studio\2022\Community" :skiko-winui:compileWinuiJvmNativeWindowsX64 --rerun-tasks`。结果：通过；NuGet 安装 `Microsoft.WindowsAppSDK 2.1.3` 后从 transitive `Microsoft.WindowsAppSDK.WinUI 2.1.0` 解析到 `microsoft.ui.xaml.media.dxinterop.h`。
 
 - [x] `:skiko-winui:compileWinuiSkikoWindowsX64`
   - 最近结果：通过。

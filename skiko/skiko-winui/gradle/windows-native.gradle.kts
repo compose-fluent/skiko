@@ -4,11 +4,14 @@ import java.security.MessageDigest
 val isWindowsHost = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
 val winuiNativeVsPath = providers.gradleProperty("skiko.winui.vsPath")
     .orElse(providers.environmentVariable("SKIKO_VSBT_PATH"))
+val winuiNativeWindowsAppSdkVersion = providers.gradleProperty("skiko.winui.windowsAppSdkVersion")
+    .orElse("2.1.3")
 val winuiSkikoWindowsDll = providers.gradleProperty("skiko.winui.windowsSkikoDll")
 val winuiSkikoWindowsIcuData = providers.gradleProperty("skiko.winui.windowsIcuData")
 
 val winuiJvmNativeSource = layout.projectDirectory.file("src/winuiJvmMain/cpp/windows/winuiRedrawer.cc")
 val winuiJvmNativeOutputDir = layout.buildDirectory.dir("native/winuiJvm/windowsX64")
+val winuiJvmNativeNuGetInstallDir = layout.buildDirectory.dir("tmp/compileWinuiJvmNativeWindowsX64/nuget-install")
 val winuiJvmNativeResourceDir = layout.buildDirectory.dir("generated/winuiJvmNativeResources")
 val winuiJvmNativeResourcePath = "org/jetbrains/skiko/winui/native/windows-x64"
 val skikoWinuiWindowsRuntimeDir = layout.buildDirectory.dir("generated/skikoWinuiWindowsRuntime")
@@ -183,10 +186,41 @@ fun skikoWinuiMainSystemLibs(): List<String> = listOf(
     "OpenGL32.lib",
 )
 
+val resolveWinuiJvmNativeWindowsAppSdk by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Installs the Windows App SDK NuGet package used by the skiko-winui JVM native helper."
+
+    onlyIf { isWindowsHost }
+    inputs.property("windowsAppSdkVersion", winuiNativeWindowsAppSdkVersion)
+    outputs.dir(winuiJvmNativeNuGetInstallDir)
+    outputs.upToDateWhen {
+        fileTree(winuiJvmNativeNuGetInstallDir.get().asFile) {
+            include("**/include/microsoft.ui.xaml.media.dxinterop.h")
+        }.files.isNotEmpty()
+    }
+
+    doFirst {
+        winuiJvmNativeNuGetInstallDir.get().asFile.mkdirs()
+        commandLine(
+            "nuget",
+            "install",
+            "Microsoft.WindowsAppSDK",
+            "-Version",
+            winuiNativeWindowsAppSdkVersion.get(),
+            "-OutputDirectory",
+            winuiJvmNativeNuGetInstallDir.get().asFile.absolutePath,
+            "-NonInteractive",
+            "-DirectDownload",
+            "-DependencyVersion",
+            "Highest",
+        )
+    }
+}
+
 tasks.register<Exec>("compileWinuiJvmNativeWindowsX64") {
     group = "build"
     description = "Compiles the skiko-winui JVM Windows native helper without using Skiko AWT native sources."
-    dependsOn("generateWinRtProjections")
+    dependsOn(resolveWinuiJvmNativeWindowsAppSdk)
 
     inputs.file(winuiJvmNativeSource)
     outputs.file(winuiJvmNativeOutputDir.map { it.file("skiko-winui.dll") })
@@ -212,10 +246,10 @@ tasks.register<Exec>("compileWinuiJvmNativeWindowsX64") {
         val outputLib = outputDir.resolve("skiko-winui.lib")
         val source = winuiJvmNativeSource.asFile
         val vcvars64 = File(winuiNativeVsPath.get()).resolve("VC/Auxiliary/Build/vcvars64.bat")
-        val winuiDxInteropHeader = fileTree(layout.buildDirectory.dir("tmp").get().asFile) {
+        val winuiDxInteropHeader = fileTree(winuiJvmNativeNuGetInstallDir.get().asFile) {
             include("**/include/microsoft.ui.xaml.media.dxinterop.h")
         }.files.firstOrNull()
-            ?: throw GradleException("WinUI dxinterop header was not resolved by generateWinRtProjections.")
+            ?: throw GradleException("WinUI dxinterop header was not resolved from Microsoft.WindowsAppSDK NuGet.")
         val winuiIncludeDir = winuiDxInteropHeader.parentFile
 
         outputDir.mkdirs()
