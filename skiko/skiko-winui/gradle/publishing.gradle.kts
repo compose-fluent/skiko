@@ -25,6 +25,16 @@ val kotlinWinRtGroup = providers.gradleProperty("kotlinWinRt.group")
     .orElse("io.github.compose-fluent")
 val skikoWinuiGroup = providers.gradleProperty("skiko.winui.group")
     .orElse("io.github.compose-fluent")
+val winuiWindowsAppSdkVersion = providers.gradleProperty("skiko.winui.windowsAppSdkVersion")
+    .orElse("2.1.3")
+val winuiWindowsSdkVersion = providers.gradleProperty("skiko.winui.windowsSdkVersion")
+    .orElse("10.0.26100.0")
+val winuiWindowsSdkProjectionVersion = winuiWindowsSdkVersion.zip(kotlinWinRtVersion) { sdkVersion, winrtVersion ->
+    if (winrtVersion.endsWith("-SNAPSHOT")) "$sdkVersion-kotlin-winrt-$winrtVersion" else sdkVersion
+}
+val winuiWindowsAppSdkProjectionVersion = winuiWindowsAppSdkVersion.zip(kotlinWinRtVersion) { appSdkVersion, winrtVersion ->
+    if (winrtVersion.endsWith("-SNAPSHOT")) "$appSdkVersion-kotlin-winrt-$winrtVersion" else appSdkVersion
+}
 val mavenCentralSnapshotUrl = providers.gradleProperty("skiko.winui.mavenCentralSnapshotUrl")
     .orElse("https://central.sonatype.com/repository/maven-snapshots/")
 val hasSigningKey = providers.gradleProperty("signingInMemoryKey")
@@ -117,6 +127,18 @@ extensions.configure<PublishingExtension>("publishing") {
                     appendNode("groupId", kotlinWinRtGroup.get())
                     appendNode("artifactId", "winrt-runtime-jvm")
                     appendNode("version", kotlinWinRtVersion.get())
+                    appendNode("scope", "compile")
+                }
+                dependencies.appendNode("dependency").apply {
+                    appendNode("groupId", kotlinWinRtGroup.get())
+                    appendNode("artifactId", "winrt-projections-windows-sdk")
+                    appendNode("version", winuiWindowsSdkProjectionVersion.get())
+                    appendNode("scope", "compile")
+                }
+                dependencies.appendNode("dependency").apply {
+                    appendNode("groupId", kotlinWinRtGroup.get())
+                    appendNode("artifactId", "winrt-projections-windows-app-sdk")
+                    appendNode("version", winuiWindowsAppSdkProjectionVersion.get())
                     appendNode("scope", "compile")
                 }
                 dependencies.appendNode("dependency").apply {

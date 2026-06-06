@@ -186,7 +186,7 @@ fun skikoWinuiMainSystemLibs(): List<String> = listOf(
 tasks.register<Exec>("compileWinuiJvmNativeWindowsX64") {
     group = "build"
     description = "Compiles the skiko-winui JVM Windows native helper without using Skiko AWT native sources."
-    dependsOn("stageWinRtRuntimeAssets")
+    dependsOn("generateWinRtProjections")
 
     inputs.file(winuiJvmNativeSource)
     outputs.file(winuiJvmNativeOutputDir.map { it.file("skiko-winui.dll") })
@@ -215,7 +215,7 @@ tasks.register<Exec>("compileWinuiJvmNativeWindowsX64") {
         val winuiDxInteropHeader = fileTree(layout.buildDirectory.dir("tmp").get().asFile) {
             include("**/include/microsoft.ui.xaml.media.dxinterop.h")
         }.files.firstOrNull()
-            ?: throw GradleException("WinUI dxinterop header was not staged by stageWinRtRuntimeAssets.")
+            ?: throw GradleException("WinUI dxinterop header was not resolved by generateWinRtProjections.")
         val winuiIncludeDir = winuiDxInteropHeader.parentFile
 
         outputDir.mkdirs()

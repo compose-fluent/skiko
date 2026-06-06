@@ -36,6 +36,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 当前必需类型包括 `Application`、`Window`、`FrameworkElement`、`UIElement`、`SwapChainPanel`、Automation peer/model enums、dispatcher timer/handler、size/focus/routed event types、`Windows.UI.Text.Core.CoreText*` IME/text composition types。
   - `Grid` / `Panel` / `UIElementCollection` 已重新进入显式 projection 请求，用于 `WinUISkiaHostPanel` 承载内部 `SwapChainPanel`。
   - `kotlin-winrt` Maven plugin 当前默认使用 `io.github.compose-fluent:winrt-gradle-plugin:0.1.0-SNAPSHOT`。
+  - 2026-06-06 已按最新 kotlin-winrt README 跟进：`skiko-winui` 作为 reusable library 不再配置 `winRt { application { } }`；默认依赖 Maven 预生成 projection artifacts `winrt-projections-windows-sdk` 和 `winrt-projections-windows-app-sdk`。snapshot projection 版本按 README 使用 `${windowsSdkVersion}-kotlin-winrt-${kotlinWinRtVersion}` / `${windowsAppSdkVersion}-kotlin-winrt-${kotlinWinRtVersion}` 规则。
   - `skiko.winui.useKotlinWinRtComposite=true` 可显式启用 sibling checkout/composite，用于调试 unpublished kotlin-winrt changes；默认不再要求 `../kotlin-winrt` 存在。
   - 当前 kotlin-winrt plugin/artifacts 需要 JDK 25 加载；root Gradle 8.13 不能在 JDK 25 下编译 Kotlin DSL，CI 使用 Gradle 9.4.0。
   - 2026-06-05 root、`dependencies.toml`、`skiko/buildSrc` 和 samples 的 Kotlin Gradle Plugin / stdlib 版本已升到 `2.4.0`；新版 kotlin-winrt compiler plugin 的 `ExtensionPointDescriptor` 缺类问题已解除。
@@ -105,6 +106,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - 2026-06-03 Clock sample 去掉固定 `component.width/height`，改为 `HorizontalAlignment.Stretch` / `VerticalAlignment.Stretch`，让 WinUI content 填满窗口；窗口设置 `MicaBackdrop()`，Skia canvas 背景清透明以显示系统 backdrop。
   - 2026-06-05 Clock sample resize/backdrop 修复保留为最小改动：`WinUISkiaHostPanel` 给内部 `SwapChainPanel` 设置 `opacity = 0.999999`，阻止大面积 fully-opaque swapchain element 在 resize 后进入忽略 premultiplied alpha 的独立合成路径；用户复核恢复正常。
   - `samples/SkiaWinUISample` 默认通过 Maven 坐标消费 `io.github.compose-fluent:skiko-winui`、`io.github.compose-fluent:skiko-winui-windows` 和 `io.github.compose-fluent:winrt-runtime-jvm`；`skiko.winui.dependencyMode=local` 也走同一组 Maven 坐标并优先从 `mavenLocal()` 解析本地发布物，不再使用 `files(...)` 直接依赖 jar。
+  - 2026-06-06 sample dependency helper 已同步新版 kotlin-winrt README：local/maven 两种模式都显式加入 `winrt-projections-windows-sdk` 和 `winrt-projections-windows-app-sdk` Maven 坐标，projection snapshot 版本与 `skiko-winui` library POM 保持一致，避免下游直接引用 `FrameworkElement` / `SwapChainPanel` 等 public API 时缺 projection artifact。
   - `samples/SkiaWinUISample` 已按新版 kotlin-winrt README 切到最终 app module 模型：应用 `io.github.composefluent.winrt` plugin，配置 `winRt { application { } }`，启动入口使用 `Application.start { ... }` callback 直接创建并激活 WinUI `Window`；不再由用户代码手动调用 `RuntimeScope.initializeSingleThreaded()` 或 Windows App SDK bootstrap。`Application` subclass / `onLaunched(...)` 路径需要 app module 自己生成 authoring metadata，当前 packaged/app subclass 路径尚未验证，本轮继续只走 unpackaged app host。
   - `samples/SkiaWinUISample` 编译 target 改为 JVM 25，以匹配新版 kotlin-winrt Gradle plugin 自动注入的 `-Xjdk-release=25` / FFM runtime 要求；本机验证使用 sibling `kotlin-winrt` Gradle 9.4 wrapper，因为 root Gradle 8.13 不能在 JDK 25 下运行。
   - `samples/SkiaWinUISample` 的 Gradle `run` task 已禁用并提示使用 `runWinRtApplicationHost`；按 README，WinUI app 通过 kotlin-winrt 生成的 native application host 启动，由 host 负责 Windows App SDK deployment 后再进入 JVM main。
@@ -143,7 +145,7 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - CI 下载 Skia Windows x64 dependency，并只调用 `:skiko-winui:publishSkikoWinuiToMavenLocal` / `:skiko-winui:publishSkikoWinuiToMavenCentral`。
   - 远端发布使用 GitHub Actions secrets 映射到 Gradle project properties；本轮没有读取或抓取 CI secrets。
 
-- [ ] 正在做: Fix `skiko-winui` Maven publish CI failure on `winui_dev`.
+- [x] Fix `skiko-winui` Maven publish CI failure on `winui_dev`.
   - 2026-06-02 run `26800244388` / job `79015980267` 失败在 step 11 `Verify skiko-winui publish locally`，最终失败任务是 `:skiko-winui:compileWinuiSkikoWindowsX64`，不是 Maven Central secrets 问题；step 12 发布被跳过。
   - CI 已改为 run-local `NUGET_PACKAGES` cache、Gradle `--max-workers=1` / `-Dorg.gradle.parallel=false`，降低 Windows NuGet/Gradle 并发干扰；native compile task 改为 response file，并在失败时打印 `cl/link` log，避免后续只看到 exit code。
   - 2026-06-02 run `26804852323` 在 workflow 解析阶段失败，没有创建 jobs；原因是 job-level `env` 使用了 `runner.temp` context。已改为运行时 step 写入 `$GITHUB_ENV`。
@@ -341,13 +343,15 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - `authored-metadata.tsv` 当前只导出 public `WinUISkiaHostPanel`；internal `WinUISkiaAutomationPeer` 仍生成 CCW type details，用于 `onCreateAutomationPeer()` 返回给 WinUI。
 
 - [x] `samples/SkiaWinUISample:compileKotlin`
-  - 最近结果：2026-06-04 通过。
+  - 最近结果：2026-06-06 通过。
   - 覆盖 standalone WinUI sample 消费 `WinUISkiaLayerRenderDelegate`。
   - 2026-06-04 按新版 kotlin-winrt snapshot/README 迁移 sample：`.\gradlew.bat` root wrapper 在 JDK 25 下不可用，因此验证借用 `..\kotlin-winrt\gradlew.bat` Gradle 9.4 wrapper 并设置 `JAVA_HOME=C:\Program Files\Microsoft\jdk-25.0.3.9-hotspot`。
   - 2026-06-04 task 注册验证通过。命令：`..\kotlin-winrt\gradlew.bat --no-daemon -p samples\SkiaWinUISample --console=plain tasks --all`。结果：通过，列出 `generateWinRtApplicationIdentity`、`stageWinRtRuntimeAssets`、`buildWinRtAuthoringHost`、`buildWinRtApplicationHost`、`runWinRtApplicationHost`。
   - 2026-06-04 默认 Maven 坐标模式 compile 验证通过。命令：`..\kotlin-winrt\gradlew.bat --no-daemon -p samples\SkiaWinUISample --console=plain compileKotlin`。结果：通过；`generateWinRtProjections` 走 application-packaging-only 路径，没有复现 `DesktopAcrylicController.SetTarget(CompositionTarget)` unsupported ABI metadata。
   - 2026-06-04 显式 local 模式 compile 验证通过。命令：`..\kotlin-winrt\gradlew.bat --no-daemon -p samples\SkiaWinUISample --console=plain "-Pskiko.winui.dependencyMode=local" compileKotlin`。结果：通过；local 模式现在同样走 Maven 坐标并优先由 `mavenLocal()` 解析，不再直接 file 依赖 jar。
   - 2026-06-04 unpackaged native host 验证：`..\kotlin-winrt\gradlew.bat --no-daemon -p samples\SkiaWinUISample --console=plain runWinRtApplicationHost` 返回成功；随后直接启动生成的 `samples\SkiaWinUISample\build\kotlin-winrt\application-host\bin\SkiaWinUISample.exe` 并枚举 Win32 顶层窗口，结果：PID `44200`、`MainWindowHandle=399044`、`MainWindowTitle=Skia WinUI Sample`、`Responding=True`。当前保留该 sample 窗口供人工查看。
+  - 2026-06-06 最新 kotlin-winrt snapshot/README 跟进后，本地先发布 `skiko-winui` 到 Maven Local，再验证 sample unpackaged host：`..\..\..\kotlin-winrt\gradlew.bat --no-daemon --console=plain -p . "-Pskiko.winui.dependencyMode=local" "-Pskiko.winui.version=0.0.0-SNAPSHOT" stageWinRtRuntimeAssets buildWinRtApplicationHost --rerun-tasks`。第一次因旧 `SkiaWinUISample.exe` 锁住 staged `winrt-runtime-jvm-0.1.0-SNAPSHOT.jar` 失败；停止残留 sample 进程后复跑通过。
+  - 2026-06-06 runtime smoke：直接启动 `samples\SkiaWinUISample\build\kotlin-winrt\application-host\bin\SkiaWinUISample.exe`，5 秒后枚举到 PID `18672`、`MainWindowHandle=104597436`、`MainWindowTitle=Skia WinUI Sample`、`Responding=True`；随后关闭进程避免锁住 staged jars。
   - 2026-06-04 曾发现 `Application.start { SkiaWinUISampleApp() }` + `onLaunched(...)` 在 sample app 中没有创建窗口；诊断结果是 sample 走 application-packaging-only 时 `authored-candidates.tsv` / `authored-metadata.tsv` 为空，Application subclass override 没有进入 authoring TypeDetails，WinUI 不会回调 `onLaunched`。当前 unpackaged 路径改为 `Application.start` callback 内直接建窗；packaged app / Application subclass authoring 路径暂未验证。
   - 2026-06-04 迁移过程中曾复现 `Activation factory lookup for Microsoft.UI.Xaml.Application failed: 没有注册类 (0x80040154)`；原因是旧 sample local `files(...)` dependency 不能携带 `skiko-winui` 的 Gradle variant / kotlin-winrt NuGet identity，导致 app host 的 `runtime-assets` 缺少 WindowsAppSDK DLL/PRI。处理方式已改为 local/maven 两种模式都通过 Maven 坐标消费发布物；不再直接 file 依赖 jar，也不再手写 sample runtime identity。
   - 2026-06-03 `SKIKO-004` 直接 sample 复测：`.\gradlew.bat -p samples\SkiaWinUISample run --no-configuration-cache --no-daemon` 持续运行到 90 秒工具超时，没有快速 native crash；符合交互式 sample 启动后常驻行为。
@@ -373,8 +377,9 @@ V3 标准是在 V2 上补齐 WinUI host 基础无障碍入口。第一步是把 
   - Jar root contains `icudtl.dat`、`skiko-windows-x64.dll`、`skiko-windows-x64.dll.sha256`。
 
 - [x] `:skiko-winui:publishSkikoWinuiToMavenLocal`
-  - 最近结果：通过。
+  - 最近结果：2026-06-06 通过。
   - Published focused JVM API jar and Windows runtime jar。
+  - 2026-06-06 最新 kotlin-winrt snapshot/README 跟进后复跑通过。命令：`$env:JAVA_HOME='C:\Program Files\Microsoft\jdk-25.0.3.9-hotspot'; $env:PATH="$env:JAVA_HOME\bin;$env:PATH"; ..\kotlin-winrt\gradlew.bat --no-daemon --console=plain -p . "-Pskiko.winui.skipSkikoComposite=true" "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" "-Pskiko.winui.mingw.enabled=false" "-Pskiko.winui.localSkikoJar=skiko/build/libs/skiko-awt-0.0.0-SNAPSHOT.jar" "-Pskiko.winui.vsPath=D:\Program Files\Microsoft Visual Studio\2022\Community" :skiko-winui:publishSkikoWinuiToMavenLocal --rerun-tasks`。结果：通过；`generateWinRtProjections`、`compileKotlinWinuiJvm`、`generatePomFileForSkikoWinuiJvmPublication` 均运行，主 POM 现在声明 `winrt-runtime-jvm`、`winrt-projections-windows-sdk`、`winrt-projections-windows-app-sdk` 和 `skiko-winui-windows`。
   - 2026-06-03 `SKIKO-006` 本地验证通过。命令：`$env:JAVA_HOME='C:\Program Files\Microsoft\jdk-25.0.3.9-hotspot'; gradle :skiko-winui:publishSkikoWinuiToMavenLocal "-Pskiko.version=0.0.1-local-SNAPSHOT" "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" "-Pskiko.winui.localSkikoJar=skiko/build/libs/skiko-awt-0.0.0-SNAPSHOT.jar" --no-configuration-cache --no-daemon --rerun-tasks`。结果：通过，发布到本机 `F:\Dependencies\maven`；`skiko-winui` POM 只保留 `winrt-runtime-jvm` compile dependency 和 `skiko-winui-windows` runtime dependency，不再传递 `org.jetbrains.skiko:skiko` / `skiko-awt`。
 
 - [x] `:skiko-winui:tasks --all` publish task configuration.
