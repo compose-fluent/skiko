@@ -12,6 +12,7 @@ buildscript {
         .get()
 
     repositories {
+        mavenLocal()
         maven("https://central.sonatype.com/repository/maven-snapshots/") {
             mavenContent {
                 snapshotsOnly()
@@ -35,7 +36,12 @@ apply(plugin = "io.github.composefluent.winrt")
 apply(from = "../skiko-winui-sample-dependencies.gradle.kts")
 
 repositories {
-    mavenLocal()
+    mavenLocal {
+        content {
+            includeModule("io.github.compose-fluent", "skiko-winui")
+            includeModule("io.github.compose-fluent", "skiko-winui-windows")
+        }
+    }
     mavenCentral()
     maven("https://central.sonatype.com/repository/maven-snapshots/") {
         mavenContent {
@@ -47,7 +53,6 @@ repositories {
 }
 
 val skikoWinuiDependencyNotations = extra["skikoWinuiDependencyNotations"] as List<Any>
-
 dependencies {
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
     implementation(kotlin("stdlib"))

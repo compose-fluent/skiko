@@ -12,6 +12,7 @@ buildscript {
         .get()
 
     repositories {
+        mavenLocal()
         maven("https://central.sonatype.com/repository/maven-snapshots/") {
             mavenContent {
                 snapshotsOnly()
@@ -47,7 +48,7 @@ val winuiMingwEnabled = providers.gradleProperty("skiko.winui.mingw.enabled")
     .map(String::toBoolean)
     .orElse(true)
 val winuiJvmTarget = providers.gradleProperty("skiko.winui.jvmTarget")
-    .orElse("22")
+    .orElse("25")
 val winuiJvmToolchain = providers.gradleProperty("skiko.winui.jvmToolchain")
     .orElse(winuiJvmTarget)
 val skipProjectionGeneration = providers.gradleProperty("skiko.winui.skipProjectionGeneration")

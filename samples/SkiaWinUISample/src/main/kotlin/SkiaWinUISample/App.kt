@@ -2,6 +2,7 @@ package SkiaWinUISample
 
 import microsoft.ui.xaml.Application
 import microsoft.ui.xaml.HorizontalAlignment
+import microsoft.ui.xaml.LaunchActivatedEventArgs
 import microsoft.ui.xaml.VerticalAlignment
 import microsoft.ui.xaml.Window
 import microsoft.ui.xaml.media.MicaBackdrop
@@ -32,8 +33,13 @@ import kotlin.math.sin
 
 fun main() {
     Application.start {
-        val application = Application()
-        activeApplication = application
+        SkiaWinUISampleApp()
+    }
+}
+
+class SkiaWinUISampleApp : Application() {
+    override fun onLaunched(args: LaunchActivatedEventArgs) {
+        activeApplication = this
         val skiaLayer = WinUISkiaLayer()
         val scene = ClocksWinUI(
             scaleProvider = { skiaLayer.contentScale },
@@ -51,7 +57,7 @@ fun main() {
 
         winuiWindow.closed.add(TypedEventHandler { _, _ ->
             skiaLayer.close()
-            application.exit()
+            exit()
         })
 
         activeWindow = winuiWindow
