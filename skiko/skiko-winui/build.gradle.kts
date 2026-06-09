@@ -12,7 +12,6 @@ buildscript {
         .get()
 
     repositories {
-        mavenLocal()
         maven("https://central.sonatype.com/repository/maven-snapshots/") {
             mavenContent {
                 snapshotsOnly()
@@ -55,9 +54,6 @@ val skipProjectionGeneration = providers.gradleProperty("skiko.winui.skipProject
     .map(String::toBoolean)
     .orElse(false)
 val localSkikoJar = providers.gradleProperty("skiko.winui.localSkikoJar")
-val localWinRtRuntimeJar = providers.gradleProperty("skiko.winui.localWinRtRuntimeJar")
-val localWinRtRuntimeKlib = providers.gradleProperty("skiko.winui.localWinRtRuntimeKlib")
-val localWinRtAuthoringJar = providers.gradleProperty("skiko.winui.localWinRtAuthoringJar")
 val skikoWinuiEmbeddedSkikoApi = configurations.create("skikoWinuiEmbeddedSkikoApi") {
     isCanBeConsumed = false
     isCanBeResolved = true
@@ -177,11 +173,7 @@ kotlin {
                         exclude(group = "org.jetbrains.skiko", module = "skiko-awt")
                     }
                 }
-                if (localWinRtRuntimeJar.isPresent) {
-                    implementation(files(rootProject.file(localWinRtRuntimeJar.get())))
-                } else {
-                    implementation("${kotlinWinRtGroup.get()}:winrt-runtime:${kotlinWinRtVersion.get()}")
-                }
+                implementation("${kotlinWinRtGroup.get()}:winrt-runtime:${kotlinWinRtVersion.get()}")
             }
         }
         val winuiMain by creating {
@@ -190,22 +182,13 @@ kotlin {
         named("winuiJvmMain") {
             dependsOn(winuiMain)
             dependencies {
-                if (localWinRtAuthoringJar.isPresent) {
-                    implementation(files(rootProject.file(localWinRtAuthoringJar.get())))
-                } else {
-                    implementation("${kotlinWinRtGroup.get()}:winrt-authoring:${kotlinWinRtVersion.get()}")
-                }
+                implementation("${kotlinWinRtGroup.get()}:winrt-authoring:${kotlinWinRtVersion.get()}")
                 runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2")
             }
         }
         if (winuiMingwEnabled.get()) {
             named("winuiMingwMain") {
                 dependsOn(winuiMain)
-                dependencies {
-                    if (localWinRtRuntimeKlib.isPresent) {
-                        implementation(files(rootProject.file(localWinRtRuntimeKlib.get())))
-                    }
-                }
             }
         }
     }

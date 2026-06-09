@@ -12,6 +12,7 @@ import org.jetbrains.skia.PictureRecorder
 import org.jetbrains.skia.PixelGeometry
 import org.jetbrains.skiko.GraphicsApi
 import org.jetbrains.skiko.SkikoRenderDelegate
+import kotlin.math.roundToInt
 
 /**
  * AWT-free Skiko layer hosted by WinUI.
@@ -455,8 +456,8 @@ class WinUISkiaLayer(
         val scale = contentScale
         val logicalWidth = hostPanel.actualWidth.toFloat()
         val logicalHeight = hostPanel.actualHeight.toFloat()
-        val scaledWidth = (logicalWidth * scale).toInt()
-        val scaledHeight = (logicalHeight * scale).toInt()
+        val scaledWidth = (logicalWidth * scale).roundToInt()
+        val scaledHeight = (logicalHeight * scale).roundToInt()
         if (scaledWidth <= 0 || scaledHeight <= 0) {
             return null
         }

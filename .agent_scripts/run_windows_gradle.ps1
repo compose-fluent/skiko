@@ -6,12 +6,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$kotlinWinRtRoot = Join-Path (Split-Path $repoRoot -Parent) "kotlin-winrt"
-$gradleWrapper = Join-Path $kotlinWinRtRoot "gradlew.bat"
+$gradleWrapper = Join-Path $repoRoot "gradlew.bat"
 $javaHome = "C:\Program Files\Microsoft\jdk-25.0.3.9-hotspot"
 
 if (-not (Test-Path -LiteralPath $gradleWrapper -PathType Leaf)) {
-    throw "kotlin-winrt Gradle wrapper not found at '$gradleWrapper'."
+    throw "Gradle wrapper not found at '$gradleWrapper'."
 }
 if (-not (Test-Path -LiteralPath $javaHome -PathType Container)) {
     throw "JDK 25 not found at '$javaHome'."
@@ -170,8 +169,6 @@ if ($GradleArgs.Count -eq 1 -and $GradleArgs[0] -eq "winui-smoke") {
         "-Pskiko.winui.jvmTarget=25",
         "-Pskiko.winui.jvmToolchain=25",
         "-Pskiko.winui.localSkikoJar=skiko/build/libs/skiko-awt-0.0.0-SNAPSHOT.jar",
-        "-Pskiko.winui.localWinRtRuntimeJar=$kotlinWinRtRoot\winrt-runtime\build\libs\winrt-runtime-jvm.jar",
-        "-Pskiko.winui.localWinRtAuthoringJar=$kotlinWinRtRoot\winrt-authoring\build\libs\winrt-authoring-0.1.0-SNAPSHOT.jar",
         "-Dkotlin.daemon.jvmargs=-Xmx8192m",
         "-Dorg.gradle.jvmargs=-Xmx8192m",
         "--console=plain",
@@ -189,8 +186,6 @@ if ($GradleArgs.Count -eq 1 -and $GradleArgs[0] -eq "winui-smoke") {
         "-Pskiko.winui.jvmTarget=25",
         "-Pskiko.winui.jvmToolchain=25",
         "-Pskiko.winui.localSkikoJar=skiko/build/libs/skiko-awt-0.0.0-SNAPSHOT.jar",
-        "-Pskiko.winui.localWinRtRuntimeJar=$kotlinWinRtRoot\winrt-runtime\build\libs\winrt-runtime-jvm.jar",
-        "-Pskiko.winui.localWinRtAuthoringJar=$kotlinWinRtRoot\winrt-authoring\build\libs\winrt-authoring-0.1.0-SNAPSHOT.jar",
         "-Dkotlin.daemon.jvmargs=-Xmx8192m",
         "-Dorg.gradle.jvmargs=-Xmx8192m",
         "--console=plain",
@@ -204,8 +199,6 @@ if ($GradleArgs.Count -eq 1 -and $GradleArgs[0] -eq "winui-core-check") {
         "-Pskiko.winui.jvmTarget=25",
         "-Pskiko.winui.jvmToolchain=25",
         "-Pskiko.winui.localSkikoJar=skiko/build/libs/skiko-awt-0.0.0-SNAPSHOT.jar",
-        "-Pskiko.winui.localWinRtRuntimeJar=$kotlinWinRtRoot\winrt-runtime\build\libs\winrt-runtime-jvm.jar",
-        "-Pskiko.winui.localWinRtAuthoringJar=$kotlinWinRtRoot\winrt-authoring\build\libs\winrt-authoring-0.1.0-SNAPSHOT.jar",
         "-Dkotlin.daemon.jvmargs=-Xmx8192m",
         "-Dorg.gradle.jvmargs=-Xmx8192m",
         "--console=plain",
@@ -222,8 +215,6 @@ if ($GradleArgs.Count -eq 1 -and $GradleArgs[0] -eq "winui-core-check") {
         "-Pskiko.winui.jvmTarget=25",
         "-Pskiko.winui.jvmToolchain=25",
         "-Pskiko.winui.localSkikoJar=skiko/build/libs/skiko-awt-0.0.0-SNAPSHOT.jar",
-        "-Pskiko.winui.localWinRtRuntimeJar=$kotlinWinRtRoot\winrt-runtime\build\libs\winrt-runtime-jvm.jar",
-        "-Pskiko.winui.localWinRtAuthoringJar=$kotlinWinRtRoot\winrt-authoring\build\libs\winrt-authoring-0.1.0-SNAPSHOT.jar",
         "-Dkotlin.daemon.jvmargs=-Xmx8192m",
         "-Dorg.gradle.jvmargs=-Xmx8192m",
         "--console=plain",
@@ -243,7 +234,6 @@ if ($GradleArgs.Count -eq 1 -and $GradleArgs[0] -eq "winui-mingw-compile") {
         "-Pskiko.winui.jvmTarget=25",
         "-Pskiko.winui.jvmToolchain=25",
         "-Pskiko.native.windows.enabled=true",
-        "-Pskiko.winui.localWinRtRuntimeKlib=$kotlinWinRtRoot\winrt-runtime\build\classes\kotlin\mingwX64\main\klib\winrt-runtime",
         "-Dkotlin.daemon.jvmargs=-Xmx8192m",
         "-Dorg.gradle.jvmargs=-Xmx8192m",
         "--console=plain",

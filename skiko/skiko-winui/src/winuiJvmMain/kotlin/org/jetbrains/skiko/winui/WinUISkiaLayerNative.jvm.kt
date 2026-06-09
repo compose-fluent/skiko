@@ -74,6 +74,9 @@ internal object WinUISkiaLayerNative {
     external fun resizeBuffers(device: Long, width: Int, height: Int)
 
     @JvmStatic
+    external fun setSwapChainTransform(device: Long, contentScaleX: Float, contentScaleY: Float)
+
+    @JvmStatic
     external fun disposeDevice(device: Long)
 
     @JvmStatic

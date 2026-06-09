@@ -151,6 +151,34 @@ namespace {
             swapChain1
         ));
     }
+
+    bool setSwapChainTransform(
+        JNIEnv *env,
+        const char *function,
+        WinUIDirectXDevice *device,
+        float contentScaleX,
+        float contentScaleY
+    ) {
+        if (contentScaleX <= 0.0f) {
+            contentScaleX = 1.0f;
+        }
+        if (contentScaleY <= 0.0f) {
+            contentScaleY = 1.0f;
+        }
+        Microsoft::WRL::ComPtr<IDXGISwapChain2> swapChain2;
+        if (failed(env, function, device->swapChain.As(&swapChain2), "QueryInterface(IDXGISwapChain2)")) {
+            return false;
+        }
+        DXGI_MATRIX_3X2_F matrix = {};
+        matrix._11 = 1.0f / contentScaleX;
+        matrix._22 = 1.0f / contentScaleY;
+        return !failed(
+            env,
+            function,
+            swapChain2->SetMatrixTransform(&matrix),
+            "IDXGISwapChain2::SetMatrixTransform"
+        );
+    }
 }
 
 extern "C" {
@@ -400,6 +428,17 @@ extern "C" {
             device->swapChain->ResizeBuffers(WinUIBuffersCount, width, height, DXGI_FORMAT_R8G8B8A8_UNORM, 0),
             "IDXGISwapChain::ResizeBuffers"
         );
+    }
+
+    JNIEXPORT void JNICALL Java_org_jetbrains_skiko_winui_WinUISkiaLayerNative_setSwapChainTransform(
+        JNIEnv *env,
+        jobject,
+        jlong devicePtr,
+        jfloat contentScaleX,
+        jfloat contentScaleY
+    ) {
+        WinUIDirectXDevice *device = fromJavaPointer<WinUIDirectXDevice *>(devicePtr);
+        setSwapChainTransform(env, __FUNCTION__, device, contentScaleX, contentScaleY);
     }
 
     JNIEXPORT void JNICALL Java_org_jetbrains_skiko_winui_WinUISkiaLayerNative_disposeDevice(

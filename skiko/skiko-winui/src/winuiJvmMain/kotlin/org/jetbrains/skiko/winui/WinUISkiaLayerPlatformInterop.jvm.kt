@@ -12,7 +12,7 @@ import org.jetbrains.skia.SurfaceOrigin
 
 internal actual class WinUISkiaLayerPlatformInterop actual constructor(
     private val layer: WinUISkiaLayer,
-    panel: SwapChainPanel,
+    private val panel: SwapChainPanel,
 ) : AutoCloseable {
     private val bufferCount = 2
     private val panelNativeReference: ComObjectReference
@@ -74,6 +74,11 @@ internal actual class WinUISkiaLayerPlatformInterop actual constructor(
             isSwapChainInitialized = true
             swapChainCreated = true
         }
+        WinUISkiaLayerNative.setSwapChainTransform(
+            device = device,
+            contentScaleX = panel.compositionScaleX,
+            contentScaleY = panel.compositionScaleY,
+        )
         lastWidth = width
         lastHeight = height
         val nanoTime = System.nanoTime()
