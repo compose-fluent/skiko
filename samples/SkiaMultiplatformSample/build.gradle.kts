@@ -8,7 +8,9 @@ import org.gradle.api.provider.Provider
 buildscript {
     repositories {
         google()
-        mavenCentral()
+        mavenCentral {
+            url = uri("https://cache-redirector.jetbrains.com/maven-central")
+        }
         maven("https://redirector.kotlinlang.org/maven/compose-dev")
     }
 
@@ -27,7 +29,9 @@ apply(from = "../skiko-winui-sample-dependencies.gradle.kts")
 
 repositories {
     google()
-    mavenCentral()
+    mavenCentral {
+        url = uri("https://cache-redirector.jetbrains.com/maven-central")
+    }
     mavenLocal()
     maven("https://redirector.kotlinlang.org/maven/compose-dev")
 }
