@@ -2,14 +2,22 @@ import org.gradle.api.tasks.JavaExec
 import org.gradle.jvm.tasks.Jar
 
 fun JavaExec.configureWinuiJvmSmokeClasspath() {
-    val windowsRuntimeJar = tasks.named<Jar>("skikoWinuiWindowsRuntimeJar")
+    val builtWindowsRuntimeJar = tasks.named<Jar>("skikoWinuiWindowsRuntimeJar")
+    val windowsRuntimeJar = providers.gradleProperty("skiko.winui.windowsRuntimeJar")
+        .map { layout.projectDirectory.file(it) }
+        .orElse(builtWindowsRuntimeJar.flatMap { it.archiveFile })
+    val runtimeAssetsRoot = providers.gradleProperty("skiko.winui.runtimeAssetsRoot")
+        .orElse(
+            layout.projectDirectory.dir("../../samples/SkiaWinUISample/build/kotlin-winrt/application-package")
+                .asFile.absolutePath
+        )
     mainClass.set("org.jetbrains.skiko.winui.WinUISkiaLayerSmoke")
     classpath = files(
         layout.buildDirectory.dir("classes/kotlin/winuiJvm/test"),
         layout.buildDirectory.dir("processedResources/winuiJvm/test"),
         layout.buildDirectory.dir("classes/kotlin/winuiJvm/main"),
         layout.buildDirectory.dir("processedResources/winuiJvm/main"),
-        windowsRuntimeJar.flatMap { it.archiveFile },
+        windowsRuntimeJar,
     ) + configurations.named("winuiJvmTestRuntimeClasspath").get()
     jvmArgs(
         "--enable-native-access=ALL-UNNAMED",
@@ -21,7 +29,7 @@ fun JavaExec.configureWinuiJvmSmokeClasspath() {
     )
     systemProperty(
         "kotlin.winrt.runtimeAssetsRoot",
-        layout.buildDirectory.dir("kotlin-winrt/application-package").get().asFile.absolutePath,
+        runtimeAssetsRoot.get(),
     )
 }
 
@@ -30,9 +38,10 @@ fun JavaExec.dependsOnWinuiJvmSmokeInputs() {
         "compileTestKotlinWinuiJvm",
         "winuiJvmProcessResources",
         "winuiJvmTestProcessResources",
-        "stageWinRtApplicationPackage",
-        tasks.named("skikoWinuiWindowsRuntimeJar"),
     )
+    if (!providers.gradleProperty("skiko.winui.windowsRuntimeJar").isPresent) {
+        dependsOn(tasks.named("skikoWinuiWindowsRuntimeJar"))
+    }
 }
 
 val isWindowsHost = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)

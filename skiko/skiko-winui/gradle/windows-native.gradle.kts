@@ -21,9 +21,6 @@ val winuiSkikoWindowsOutputDir = layout.buildDirectory.dir("native/skikoWinui/wi
 val winuiSkikoWindowsObjectsDir = winuiSkikoWindowsOutputDir.map { it.dir("obj") }
 val winuiSkikoWindowsDllFile = winuiSkikoWindowsOutputDir.map { it.file(skikoWinuiWindowsRuntimeDllName) }
 val winuiSkikoWindowsCompatSource = layout.projectDirectory.file("src/winuiJvmMain/cpp/windows/msvcStlCompat.cc")
-val winuiSkikoWindowsUseMsvcStlCompat = providers.gradleProperty("skiko.winui.msvcStlCompat")
-    .map(String::toBoolean)
-    .orElse(false)
 
 fun sha256(file: File): String {
     val digest = MessageDigest.getInstance("SHA-256")
@@ -73,7 +70,7 @@ fun skikoWinuiMainSources(): List<File> {
                 }
                 .toList()
         }
-        .plus(if (winuiSkikoWindowsUseMsvcStlCompat.get()) listOf(winuiSkikoWindowsCompatSource.asFile) else emptyList())
+        .plus(winuiSkikoWindowsCompatSource.asFile)
         .sortedBy { it.absolutePath }
 }
 
@@ -316,8 +313,7 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
     outputs.file(winuiSkikoWindowsDllFile)
 
     onlyIf {
-        val output = winuiSkikoWindowsDllFile.get().asFile
-        isWindowsHost && (!output.isFile || sources.any { it.lastModified() > output.lastModified() })
+        isWindowsHost
     }
 
     doLast {
@@ -348,23 +344,11 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
         val importLib = outputDir.resolve("skiko-windows-x64.lib")
         val batchFile = outputDir.resolve("compile-skiko-winui-windows.cmd")
         val logFile = outputDir.resolve("compile-skiko-winui-windows.log")
+        val setupLogFile = outputDir.resolve("compile-skiko-winui-windows-setup.log")
         val launcherLogFile = outputDir.resolve("compile-skiko-winui-windows-launcher.log")
         val linkResponseFile = outputDir.resolve("link-skiko-winui-windows.rsp")
         outputDir.mkdirs()
         objectsDir.mkdirs()
-        val msvcToolsBinDir = System.getenv("VCToolsInstallDir")
-            ?.let(::File)
-            ?.resolve("bin/HostX64/x64")
-            ?.takeIf(File::isDirectory)
-        val clExecutable = msvcToolsBinDir
-            ?.resolve("cl.exe")
-            ?.takeIf(File::isFile)
-        val linkExecutable = msvcToolsBinDir
-            ?.resolve("link.exe")
-            ?.takeIf(File::isFile)
-        val clCommand = clExecutable?.toResponseFilePath() ?: "cl.exe"
-        val linkCommand = linkExecutable?.toResponseFilePath() ?: "link.exe"
-
         val includeDirs = windowsSkiaIncludeDirs(skiaDir) + listOf(
             jdkHome.resolve("include"),
             jdkHome.resolve("include/win32"),
@@ -401,6 +385,9 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
                 appendLine("/DEBUG")
                 appendLine("/OUT:${dll.toResponseFilePath()}")
                 appendLine("/IMPLIB:${importLib.toResponseFilePath()}")
+                appendLine("/alternatename:__std_search_1=skiko_winui___std_search_1")
+                appendLine("/alternatename:__std_find_first_of_trivial_pos_1=skiko_winui___std_find_first_of_trivial_pos_1")
+                appendLine("/alternatename:__std_remove_8=skiko_winui___std_remove_8")
                 objectFiles.forEach { appendLine(it.toResponseFilePath()) }
                 skikoWinuiMainSkiaLibs(skiaLibDir).forEach { appendLine(it.toResponseFilePath()) }
                 skikoWinuiMainSystemLibs().forEach { appendLine(it) }
@@ -412,26 +399,24 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
                 appendLine("@echo off")
                 appendLine("setlocal")
                 appendLine("set \"LOG=${logFile.toCommandLinePath()}\"")
+                appendLine("set \"SETUP_LOG=${setupLogFile.toCommandLinePath()}\"")
                 appendLine("echo Starting WinUI Skiko native build > \"%LOG%\"")
-                appendLine("where cl.exe >> \"%LOG%\" 2>&1 && goto :msvc_ready")
-                appendLine("call ${vcvars64.toResponseFilePath()} >> \"%LOG%\" 2>&1")
-                appendLine(":msvc_ready")
-                if (clExecutable != null) {
-                    appendLine("echo Using MSVC cl: ${clExecutable.absolutePath} >> \"%LOG%\"")
-                } else {
-                    appendLine("where cl.exe >> \"%LOG%\" 2>&1 || goto :fail")
-                }
-                if (linkExecutable != null) {
-                    appendLine("echo Using MSVC link: ${linkExecutable.absolutePath} >> \"%LOG%\"")
-                } else {
-                    appendLine("where link.exe >> \"%LOG%\" 2>&1 || goto :fail")
-                }
+                appendLine("echo Initializing MSVC environment > \"%SETUP_LOG%\"")
+                appendLine("call ${vcvars64.toResponseFilePath()} >> \"%SETUP_LOG%\" 2>&1 || goto :fail")
+                appendLine("where clang-cl.exe >> \"%LOG%\" 2>&1 && set \"CL_CMD=clang-cl.exe\"")
+                appendLine("if not defined CL_CMD where cl.exe >> \"%LOG%\" 2>&1 && set \"CL_CMD=cl.exe\"")
+                appendLine("if not defined CL_CMD goto :fail")
+                appendLine("where lld-link.exe >> \"%LOG%\" 2>&1 && set \"LINK_CMD=lld-link.exe\"")
+                appendLine("if not defined LINK_CMD where link.exe >> \"%LOG%\" 2>&1 && set \"LINK_CMD=link.exe\"")
+                appendLine("if not defined LINK_CMD goto :fail")
+                appendLine("echo Using compiler %CL_CMD% >> \"%LOG%\"")
+                appendLine("echo Using linker %LINK_CMD% >> \"%LOG%\"")
                 compileResponseFiles.forEach { (source, responseFile) ->
                     appendLine("echo cl ${source.name} >> \"%LOG%\"")
-                    appendLine("$clCommand @${responseFile.toResponseFilePath()} >> \"%LOG%\" 2>&1 || goto :fail")
+                    appendLine("%CL_CMD% @${responseFile.toResponseFilePath()} >> \"%LOG%\" 2>&1 || goto :fail")
                 }
                 appendLine("echo link ${dll.name} >> \"%LOG%\"")
-                appendLine("$linkCommand @${linkResponseFile.toResponseFilePath()} >> \"%LOG%\" 2>&1 || goto :fail")
+                appendLine("%LINK_CMD% @${linkResponseFile.toResponseFilePath()} >> \"%LOG%\" 2>&1 || goto :fail")
                 appendLine("exit /b 0")
                 appendLine(":fail")
                 appendLine("set EXIT_CODE=%ERRORLEVEL%")
@@ -452,6 +437,13 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
             } else {
                 "<missing native log>"
             }
+            val setupLog = if (setupLogFile.isFile) {
+                setupLogFile.readLines()
+                    .takeLast(80)
+                    .joinToString(System.lineSeparator())
+            } else {
+                "<missing setup log>"
+            }
             val batchTail = batchFile.readLines()
                 .takeLast(40)
                 .joinToString(System.lineSeparator())
@@ -461,11 +453,14 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
                 exitCode=$exitCode
                 batchFile=${batchFile.absolutePath}
                 logFile=${logFile.absolutePath}
+                setupLogFile=${setupLogFile.absolutePath}
                 launcherLogFile=${launcherLogFile.absolutePath}
                 logExists=${logFile.isFile}
                 logLength=${if (logFile.isFile) logFile.length() else 0}
                 ---- native log ----
                 $nativeLog
+                ---- setup log ----
+                $setupLog
                 ---- batch tail ----
                 $batchTail
                 """.trimIndent()

@@ -9,7 +9,6 @@ internal class WinUIRenderDispatcher(
     private val renderNow: (throttledToVsync: Boolean) -> Unit,
 ) : AutoCloseable {
     private val lock = Any()
-    private var isRendering = false
     private var pendingRender = false
     private var pendingRenderThrottledToVsync = true
     private var isPendingRenderEnqueued = false
@@ -17,27 +16,7 @@ internal class WinUIRenderDispatcher(
 
     fun needRender(throttledToVsync: Boolean) {
         checkOpen()
-        if (!dispatcherQueue.hasThreadAccess) {
-            scheduleRender(throttledToVsync)
-            return
-        }
-        var shouldEnqueue = false
-        var shouldRenderNow = true
-        winuiSynchronized(lock) {
-            if (isRendering) {
-                shouldEnqueue = scheduleRenderLocked(throttledToVsync)
-                shouldRenderNow = false
-            } else {
-                pendingRender = false
-                pendingRenderThrottledToVsync = true
-            }
-        }
-        if (shouldEnqueue) {
-            enqueuePendingRender()
-        }
-        if (shouldRenderNow) {
-            render(throttledToVsync)
-        }
+        scheduleRender(throttledToVsync)
     }
 
     fun scheduleRender(throttledToVsync: Boolean) {
@@ -75,7 +54,7 @@ internal class WinUIRenderDispatcher(
             if (isClosedOrDisposed()) {
                 return@DispatcherQueueHandler
             }
-            needRender(throttledToVsync = pendingThrottledToVsync)
+            render(throttledToVsync = pendingThrottledToVsync)
         })
         if (!enqueued) {
             winuiSynchronized(lock) {
@@ -85,16 +64,7 @@ internal class WinUIRenderDispatcher(
     }
 
     private fun render(throttledToVsync: Boolean) {
-        winuiSynchronized(lock) {
-            isRendering = true
-        }
-        try {
-            renderNow(throttledToVsync)
-        } finally {
-            winuiSynchronized(lock) {
-                isRendering = false
-            }
-        }
+        renderNow(throttledToVsync)
     }
 
     override fun close() {

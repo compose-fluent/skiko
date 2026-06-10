@@ -4,7 +4,7 @@
 
 extern "C" {
 
-const void* __stdcall __std_search_1(
+const void* __stdcall skiko_winui___std_search_1(
     const void* const first,
     const void* const last,
     const void* const needle,
@@ -32,7 +32,7 @@ const void* __stdcall __std_search_1(
     return last;
 }
 
-__declspec(noalias) std::size_t __stdcall __std_find_first_of_trivial_pos_1(
+__declspec(noalias) std::size_t __stdcall skiko_winui___std_find_first_of_trivial_pos_1(
     const void* const haystack,
     const std::size_t haystackLength,
     const void* const needle,
@@ -55,7 +55,7 @@ __declspec(noalias) std::size_t __stdcall __std_find_first_of_trivial_pos_1(
     return haystackLength;
 }
 
-void* __stdcall __std_remove_8(void* first, void* const last, const std::uint64_t value) noexcept {
+void* __stdcall skiko_winui___std_remove_8(void* first, void* const last, const std::uint64_t value) noexcept {
     auto* read = static_cast<std::uint64_t*>(first);
     auto* const end = static_cast<std::uint64_t*>(last);
     auto* write = read;

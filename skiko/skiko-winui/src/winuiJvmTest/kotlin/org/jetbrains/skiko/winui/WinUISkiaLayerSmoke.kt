@@ -248,72 +248,123 @@ private class SmokeSession(
         uiElement: UIElement,
         skiaLayer: WinUISkiaLayerSurface,
     ) {
-        try {
-            println("skiko-winui-smoke: render callback")
-            forceLayout(uiElement, INITIAL_WIDTH, INITIAL_HEIGHT)
-            println(
-                "skiko-winui-smoke: initial actual ${frameworkElement.actualWidth} x ${frameworkElement.actualHeight}"
-            )
-            check(skiaLayer.width == INITIAL_WIDTH.toFloat() && skiaLayer.height == INITIAL_HEIGHT.toFloat()) {
-                "Expected WinUISkiaLayer size ${INITIAL_WIDTH}x${INITIAL_HEIGHT}, got ${skiaLayer.width}x${skiaLayer.height}."
-            }
-            println("skiko-winui-smoke: request focus")
-            val invalidFocusRequested = skiaLayer.requestFocus(WinUIFocusState.UNFOCUSED)
-            check(!invalidFocusRequested) {
-                "Expected requestFocus(UNFOCUSED) to be rejected."
-            }
-            val focusRequested = skiaLayer.requestFocus(WinUIFocusState.KEYBOARD)
-            println("skiko-winui-smoke: request keyboard focus result $focusRequested state ${skiaLayer.focusState}")
-            skiaLayer.needRender(throttledToVsync = false)
-
-            println("skiko-winui-smoke: resize panel")
-            frameworkElement.width = RESIZED_WIDTH
-            frameworkElement.height = RESIZED_HEIGHT
-            forceLayout(uiElement, RESIZED_WIDTH, RESIZED_HEIGHT)
-            println(
-                "skiko-winui-smoke: resized actual ${frameworkElement.actualWidth} x ${frameworkElement.actualHeight}"
-            )
-            check(skiaLayer.width == RESIZED_WIDTH.toFloat() && skiaLayer.height == RESIZED_HEIGHT.toFloat()) {
-                "Expected WinUISkiaLayer resized size ${RESIZED_WIDTH}x${RESIZED_HEIGHT}, got ${skiaLayer.width}x${skiaLayer.height}."
-            }
-            skiaLayer.needRender(throttledToVsync = false)
-
-            check(renderCount >= 2) {
-                "Expected at least two Skia render callbacks after initial render and resize, got $renderCount."
-            }
-            println("skiko-winui-smoke: render count $renderCount")
-            if (skiaLayer is WinUISkiaLayer) {
-                verifyAutomationPeer(skiaLayer)
-            }
-            if (options.verifyFocusAfterDispatcher) {
-                println("skiko-winui-smoke: schedule dispatcher focus verification")
-                scheduleDispatcherFocusVerification(skiaLayer)
-                return
-            }
-            if (options.autoExit) {
-                println("skiko-winui-smoke: auto exit")
-                if (options.useApplicationExit) {
-                    if (options.closeBeforeApplicationExit) {
-                        close()
+        println("skiko-winui-smoke: render callback")
+        val timer = DispatcherQueue.getForCurrentThread().createTimer()
+        focusTimer = timer
+        timer.interval = 16.milliseconds
+        timer.isRepeating = true
+        var stage = 0
+        var ticks = 0
+        focusTimerTickToken = timer.tick.add(TypedEventHandler { _, _ ->
+            try {
+                ticks += 1
+                check(ticks < 240) {
+                    "Timed out waiting for asynchronous WinUISkiaLayer render callbacks; stage=$stage renderCount=$renderCount."
+                }
+                when (stage) {
+                    0 -> {
+                        forceLayout(uiElement, INITIAL_WIDTH, INITIAL_HEIGHT)
+                        println(
+                            "skiko-winui-smoke: initial actual ${frameworkElement.actualWidth} x ${frameworkElement.actualHeight}"
+                        )
+                        check(skiaLayer.width == INITIAL_WIDTH.toFloat() && skiaLayer.height == INITIAL_HEIGHT.toFloat()) {
+                            "Expected WinUISkiaLayer size ${INITIAL_WIDTH}x${INITIAL_HEIGHT}, got ${skiaLayer.width}x${skiaLayer.height}."
+                        }
+                        println("skiko-winui-smoke: request focus")
+                        val invalidFocusRequested = skiaLayer.requestFocus(WinUIFocusState.UNFOCUSED)
+                        check(!invalidFocusRequested) {
+                            "Expected requestFocus(UNFOCUSED) to be rejected."
+                        }
+                        val focusRequested = skiaLayer.requestFocus(WinUIFocusState.KEYBOARD)
+                        println("skiko-winui-smoke: request keyboard focus result $focusRequested state ${skiaLayer.focusState}")
+                        skiaLayer.needRender(throttledToVsync = false)
+                        stage = 1
                     }
-                    println("skiko-winui-smoke: application exit")
-                    application.exit()
-                    println("skiko-winui-smoke: application exit requested")
+                    1 -> {
+                        if (renderCount < 1) {
+                            return@TypedEventHandler
+                        }
+                        println("skiko-winui-smoke: resize panel")
+                        frameworkElement.width = RESIZED_WIDTH
+                        frameworkElement.height = RESIZED_HEIGHT
+                        forceLayout(uiElement, RESIZED_WIDTH, RESIZED_HEIGHT)
+                        println(
+                            "skiko-winui-smoke: resized actual ${frameworkElement.actualWidth} x ${frameworkElement.actualHeight}"
+                        )
+                        check(skiaLayer.width == RESIZED_WIDTH.toFloat() && skiaLayer.height == RESIZED_HEIGHT.toFloat()) {
+                            "Expected WinUISkiaLayer resized size ${RESIZED_WIDTH}x${RESIZED_HEIGHT}, got ${skiaLayer.width}x${skiaLayer.height}."
+                        }
+                        skiaLayer.needRender(throttledToVsync = false)
+                        stage = 2
+                    }
+                    2 -> {
+                        if (renderCount < 2) {
+                            return@TypedEventHandler
+                        }
+                        println("skiko-winui-smoke: shrink panel")
+                        frameworkElement.width = SHRUNK_WIDTH
+                        frameworkElement.height = SHRUNK_HEIGHT
+                        forceLayout(uiElement, SHRUNK_WIDTH, SHRUNK_HEIGHT)
+                        println(
+                            "skiko-winui-smoke: shrunk actual ${frameworkElement.actualWidth} x ${frameworkElement.actualHeight}"
+                        )
+                        check(skiaLayer.width == SHRUNK_WIDTH.toFloat() && skiaLayer.height == SHRUNK_HEIGHT.toFloat()) {
+                            "Expected WinUISkiaLayer shrunk size ${SHRUNK_WIDTH}x${SHRUNK_HEIGHT}, got ${skiaLayer.width}x${skiaLayer.height}."
+                        }
+                        skiaLayer.needRender(throttledToVsync = false)
+                        stage = 3
+                    }
+                    3 -> {
+                        if (renderCount < 3) {
+                            return@TypedEventHandler
+                        }
+                        timer.stop()
+                        focusTimerTickToken?.let(timer.tick::remove)
+                        focusTimerTickToken = null
+                        focusTimer = null
+                        println("skiko-winui-smoke: render count $renderCount")
+                        if (skiaLayer is WinUISkiaLayer) {
+                            verifyRenderDiagnostics(skiaLayer)
+                            verifyAutomationPeer(skiaLayer)
+                        }
+                        if (options.verifyFocusAfterDispatcher) {
+                            println("skiko-winui-smoke: schedule dispatcher focus verification")
+                            scheduleDispatcherFocusVerification(skiaLayer)
+                            return@TypedEventHandler
+                        }
+                        autoExit()
+                    }
+                }
+            } catch (throwable: Throwable) {
+                failure = throwable
+                closeResources()
+                if (options.autoExit) {
+                    throwable.printStackTrace()
+                    exitProcess(1)
                 } else {
-                    close()
-                    println("skiko-winui-smoke: exit process")
-                    exitProcess(0)
+                    application.exit()
                 }
             }
-        } catch (throwable: Throwable) {
-            failure = throwable
-            closeResources()
-            if (options.autoExit) {
-                throwable.printStackTrace()
-                exitProcess(1)
-            } else {
-                application.exit()
+        })
+        timer.start()
+    }
+
+    private fun autoExit() {
+        if (!options.autoExit) {
+            return
+        }
+        println("skiko-winui-smoke: auto exit")
+        if (options.useApplicationExit) {
+            if (options.closeBeforeApplicationExit) {
+                close()
             }
+            println("skiko-winui-smoke: application exit")
+            application.exit()
+            println("skiko-winui-smoke: application exit requested")
+        } else {
+            close()
+            println("skiko-winui-smoke: exit process")
+            exitProcess(0)
         }
     }
 
@@ -376,6 +427,37 @@ private class SmokeSession(
             }
         })
         timer.start()
+    }
+
+    private fun verifyRenderDiagnostics(skiaLayer: WinUISkiaLayer) {
+        println("skiko-winui-smoke: verify render diagnostics")
+        val diagnostics = skiaLayer.renderDiagnostics
+        val lastRenderedState = diagnostics.lastRenderedState
+            ?: error("Expected render diagnostics to expose last rendered state.")
+        val lastPlatformResult = diagnostics.lastPlatformResult
+            ?: error("Expected render diagnostics to expose last platform result.")
+        check(diagnostics.lastFailure == null) {
+            "Expected no render failure in diagnostics, got ${diagnostics.lastFailure}."
+        }
+        check(lastRenderedState.logicalWidth == SHRUNK_WIDTH.toFloat()) {
+            "Expected diagnostics logical width $SHRUNK_WIDTH, got ${lastRenderedState.logicalWidth}."
+        }
+        check(lastRenderedState.logicalHeight == SHRUNK_HEIGHT.toFloat()) {
+            "Expected diagnostics logical height $SHRUNK_HEIGHT, got ${lastRenderedState.logicalHeight}."
+        }
+        check(lastPlatformResult.width == lastRenderedState.scaledWidth) {
+            "Expected platform width ${lastRenderedState.scaledWidth}, got ${lastPlatformResult.width}."
+        }
+        check(lastPlatformResult.height == lastRenderedState.scaledHeight) {
+            "Expected platform height ${lastRenderedState.scaledHeight}, got ${lastPlatformResult.height}."
+        }
+        check(diagnostics.pendingInvalidatedState == null) {
+            "Expected no pending invalidated state after render, got ${diagnostics.pendingInvalidatedState}."
+        }
+        println(
+            "skiko-winui-smoke: diagnostics renderVersion=${diagnostics.renderVersion} " +
+                "platform=${lastPlatformResult.width}x${lastPlatformResult.height}"
+        )
     }
 
     private fun forceLayout(uiElement: UIElement, width: Double, height: Double) {
@@ -712,6 +794,8 @@ private class SmokeSession(
         private const val INITIAL_HEIGHT = 240.0
         private const val RESIZED_WIDTH = 480.0
         private const val RESIZED_HEIGHT = 360.0
+        private const val SHRUNK_WIDTH = 64.0
+        private const val SHRUNK_HEIGHT = 32.0
         private const val IWINDOW_CONTENT_SETTER_SLOT = 9
         private const val IWINDOW_ACTIVATE_SLOT = 26
         private val IWINDOW_IID = Guid("61F0EC79-5D52-56B5-86FB-40FA4AF288B0")
