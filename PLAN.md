@@ -18,10 +18,10 @@ Current scope is a usable WinUI backend: host a WinUI surface, render with Direc
 - [x] `WinUISkiaLayerPlatformInterop` owns platform differences. JVM actual code handles JNI, `ISwapChainPanelNative`, D3D/DXGI/Skia surface creation, present, and native disposal.
 - [x] WinUI backend code stays out of `skiko/src/awtMain`; AWT/Swing code is reference material only.
 - [x] `skiko-winui` is a reusable library project. It does not configure `winRt { application { } }`; final apps own application packaging/runtime staging.
-- [x] Skiko WinUI requests only the minimal WinRT projection types it needs. Full `winrt-projections-*` artifacts are not transitive dependencies of `skiko-winui`.
+- [x] Skiko WinUI requests only the explicit WinRT projection types it needs. Full `winrt-projections-*` artifacts are not transitive dependencies of `skiko-winui`.
 - [x] `skiko-winui-windows.jar` owns the WinUI native runtime payload (`skiko-windows-x64.dll`, `icudtl.dat`) and does not reuse `skiko-awt-runtime`.
 - [x] To avoid pulling `skiko-awt` through Gradle metadata, `winuiJvmJar` embeds the needed Skia/Skiko JVM API classes from the existing Skiko JVM API jar and publishes no transitive `org.jetbrains.skiko:skiko` dependency.
-- [x] Published `skiko-winui` must not bundle shared WinRT projection packages `microsoft/**` or `windows/**`; those belong to the consuming kotlin-winrt projection graph. Skiko-owned authored TypeDetails under `org/jetbrains/skiko/winui/WinRT_*TypeDetails*` stay in the jar.
+- [x] `skiko-winui` does not perform jar-stage filtering of generated WinRT projection classes. If explicit projection type requests still generate shared duplicate classes, that ownership/de-duplication problem belongs in kotlin-winrt, not in Skiko artifact surgery.
 - [x] `WinUIRenderDispatcher.needRender()` does not synchronously present from the current WinUI callback stack. Explicit render requests are coalesced onto `DispatcherQueue` before `renderNow` / native present.
 
 ## Current Status
@@ -42,8 +42,9 @@ Current scope is a usable WinUI backend: host a WinUI surface, render with Direc
 - [x] Fix `SKIKO-006`: keep `skiko-winui` reusable without pulling `skiko-awt` transitively.
   - Current shape: `skiko-winui` embeds the required Skia/Skiko JVM API classes and publishes only `winrt-runtime-jvm` plus `skiko-winui-windows` dependencies.
 
-- [x] Fix `SKIKO-007`: stop publishing duplicate shared WinRT projection classes.
-  - Current shape: `winuiJvmJar` excludes `microsoft/**` and `windows/**`, while keeping Skiko-authored TypeDetails.
+- [x] Fix Skiko-side scope for `SKIKO-007`: request only the WinRT projection types used by `skiko-winui` and avoid broad projection dependencies.
+  - Current shape: `winuiJvmJar` keeps generated projection output intact; Skiko does not apply extra `microsoft/**` / `windows/**` artifact excludes.
+  - Remaining duplicate projection ownership, if present when multiple libraries request the same WinRT types, is a kotlin-winrt packaging/de-duplication issue.
 
 - [x] Fix `SKIKO-009`: keep published JVM API shape aligned with the Skiko API used by WinUI tests.
   - Current shape: the published `skiko-winui` jar contains `TextStyle.setFontEdging(...)` and `Canvas.drawPicture(..., Paint)`.
@@ -61,15 +62,15 @@ Current scope is a usable WinUI backend: host a WinUI surface, render with Direc
 - [x] JVM compile and smoke compile
   - Command:
     `gradle :skiko-winui:compileKotlinWinuiJvm :skiko-winui:compileTestKotlinWinuiJvm "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" --no-configuration-cache --no-daemon --console=plain`
-  - Result on 2026-06-10: passed.
+  - Result on 2026-06-10: passed after removing the incorrect `microsoft/**` / `windows/**` jar excludes.
   - Note: KMP dependency checker still reports known `winuiMingw` unresolved `org.jetbrains.skiko:skiko` variant diagnostics; JVM compile tasks exit successfully.
 
 - [x] JVM publication shape
   - Command:
-    `gradle :skiko-winui:publishSkikoWinuiJvmPublicationToMavenLocal "-Pskiko.version=0.0.2-local-SNAPSHOT" "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" --no-configuration-cache --no-daemon --console=plain --rerun-tasks`
-  - Result on 2026-06-10: passed.
-  - Verified local artifact: `F:\Dependencies\maven\io\github\compose-fluent\skiko-winui\0.0.2-local-SNAPSHOT\skiko-winui-0.0.2-local-SNAPSHOT.jar`.
-  - Checks: `microsoft/**` and `windows/**` count is `0`; `Canvas.class`, `TextStyle.class`, `GraphicsApi.class`, and `WinUISkiaLayer.class` are present; `WinRT_WinUISkiaAutomationPeer_TypeDetails*` and `WinRT_WinUISkiaHostPanel_TypeDetails*` are present.
+    `gradle :skiko-winui:publishSkikoWinuiJvmPublicationToMavenLocal "-Pskiko.version=0.0.3-local-SNAPSHOT" "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" --no-configuration-cache --no-daemon --console=plain --rerun-tasks`
+  - Result on 2026-06-10: passed after removing the incorrect `microsoft/**` / `windows/**` jar excludes.
+  - Verified local artifact: `F:\Dependencies\maven\io\github\compose-fluent\skiko-winui\0.0.3-local-SNAPSHOT\skiko-winui-0.0.3-local-SNAPSHOT.jar`.
+  - Checks: `Canvas.class`, `TextStyle.class`, `GraphicsApi.class`, and `WinUISkiaLayer.class` are present; generated projection classes are not jar-filtered by Skiko. The local jar contains 2861 `microsoft/**` / `windows/**` entries from the explicit kotlin-winrt projection output.
   - POM check: no `org.jetbrains.skiko` or `skiko-awt`; dependencies are `winrt-runtime-jvm` and `skiko-winui-windows`.
   - API check: `javap` confirms `TextStyle.setFontEdging(...)` and `Canvas.drawPicture(..., Paint)`.
 

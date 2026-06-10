@@ -204,8 +204,6 @@ dependencies {
 
 tasks.named<Jar>("winuiJvmJar") {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    exclude("microsoft/**")
-    exclude("windows/**")
     from(skikoWinuiEmbeddedSkikoApi.map { file ->
         zipTree(file).matching {
             include("META-INF/skiko.kotlin_module")
