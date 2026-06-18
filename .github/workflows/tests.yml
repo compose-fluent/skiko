@@ -325,6 +325,12 @@ jobs:
             -Dskiko.test.ui.renderApi.ignoreAssertsFor=OPENGL \
             :skiko:awtTest
 
+      - uses: actions/setup-java@v4
+        name: 'Setup JDK 25 for skiko-winui'
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
       - shell: bash
         name: 'Run skiko-winui mingw tests'
         run: |
