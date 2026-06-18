@@ -105,6 +105,7 @@ jobs:
           for attempt in 1 2 3; do
             gradle -p . --no-daemon --stacktrace --no-configuration-cache --max-workers=1 \
               -Dorg.gradle.parallel=false \
+              -Pskiko.winui.enabled=true \
               -Pskiko.winui.jvmTarget=25 \
               -Pskiko.winui.jvmToolchain=25 \
               -Pskiko.winui.mingw.enabled=true \
@@ -130,6 +131,7 @@ jobs:
           for attempt in 1 2 3; do
             gradle -p . --no-daemon --stacktrace --no-configuration-cache --max-workers=1 \
               -Dorg.gradle.parallel=false \
+              -Pskiko.winui.enabled=true \
               -Pskiko.winui.jvmTarget=25 \
               -Pskiko.winui.jvmToolchain=25 \
               -Pskiko.winui.mingw.enabled=true \

@@ -337,6 +337,7 @@ jobs:
           ./gradlew --no-daemon --stacktrace \
             -Dskiko.test.onci=true \
             -Dskiko.test.performance.enabled=false \
+            -Pskiko.winui.enabled=true \
             -Pskiko.winui.mingw.enabled=true \
             -Pskiko.native.windows.enabled=true \
             -Pskiko.winui.skipSamples=true \
