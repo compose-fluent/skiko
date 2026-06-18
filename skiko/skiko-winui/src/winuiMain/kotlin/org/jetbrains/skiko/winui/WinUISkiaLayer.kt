@@ -1,6 +1,8 @@
 package org.jetbrains.skiko.winui
 
 import io.github.composefluent.winrt.runtime.EventRegistrationToken
+import io.github.composefluent.winrt.runtime.IUnknownReference
+import io.github.composefluent.winrt.runtime.IWinRTObject
 import microsoft.ui.dispatching.DispatcherQueue
 import microsoft.ui.xaml.FrameworkElement
 import microsoft.ui.xaml.RoutedEventHandler
@@ -31,12 +33,12 @@ class WinUISkiaLayer(
         }
 
     internal val dispatcherQueue: DispatcherQueue = DispatcherQueue.getForCurrentThread()
-    private val hostPanel = WinUISkiaHostPanel()
+    private val hostPanel = createWinUISkiaHost()
     override val renderPanel = hostPanel.renderPanel
     private val panel = renderPanel
     private val platformInterop = WinUISkiaLayerPlatformInterop(this, panel)
-    private val inputInterop = WinUIInputInterop(this, panel)
-    private val accessibilityInterop = WinUIAccessibilityInterop(hostPanel)
+    private val inputInterop = createWinUIInputInterop(this, panel)
+    private val accessibilityInterop = WinUIAccessibilityInterop(hostPanel.component)
     private val renderDispatcher = WinUIRenderDispatcher(
         dispatcherQueue = dispatcherQueue,
         isDisposed = { isDisposed },
@@ -48,7 +50,7 @@ class WinUISkiaLayer(
     private var compositionScaleChangedToken: EventRegistrationToken? = null
     private var loadedToken: EventRegistrationToken? = null
     private var unloadedToken: EventRegistrationToken? = null
-    private val pictureLock = Any()
+    private val pictureLock = WinUILock()
     private val pictureRecorder = PictureRecorder()
     private var picture: WinUIPictureHolder? = null
     private var drawScope: WinUILayerDrawScope? = null
@@ -79,26 +81,26 @@ class WinUISkiaLayer(
 
     init {
         hostPanel.bindLayer(this)
-        hasLoadedForRender = hostPanel.isLoaded
+        hasLoadedForRender = hostPanel.component.isLoaded
         sizeChangedToken = panel.sizeChanged.add(SizeChangedEventHandler { _, _ ->
             invalidateRender()
         })
         compositionScaleChangedToken = panel.compositionScaleChanged.add { _, _ ->
             invalidateRender()
         }
-        loadedToken = hostPanel.loaded.add(RoutedEventHandler { _, _ ->
+        loadedToken = hostPanel.component.loaded.add(RoutedEventHandler { _, _ ->
             onLoaded()
         })
-        unloadedToken = hostPanel.unloaded.add(RoutedEventHandler { _, _ ->
+        unloadedToken = hostPanel.component.unloaded.add(RoutedEventHandler { _, _ ->
             onUnloaded()
         })
-        hostPanel.isTabStop = true
+        hostPanel.component.isTabStop = true
         panel.isTabStop = true
         accessibilityInterop.update(accessibilityInfo)
     }
 
     override val component: FrameworkElement
-        get() = hostPanel
+        get() = hostPanel.component
 
     override var renderApi: GraphicsApi
         get() = GraphicsApi.DIRECT3D
@@ -121,17 +123,17 @@ class WinUISkiaLayer(
         }
 
     override val width: Float
-        get() = hostPanel.actualWidth.toFloat()
+        get() = logicalRenderWidth()
 
     override val height: Float
-        get() = hostPanel.actualHeight.toFloat()
+        get() = logicalRenderHeight()
 
     override val focusState: WinUIFocusState
         get() = panel.focusState.toWinUIFocusState()
 
     override fun attachTo(container: Any) {
         check(!isDisposed) { "WinUISkiaLayer is disposed" }
-        val window = container as? Window
+        val window = container.toWinUIWindowOrNull()
             ?: throw IllegalArgumentException(
                 "WinUISkiaLayer.attachTo expects a Microsoft.UI.Xaml.Window, got ${container::class.qualifiedName}."
             )
@@ -309,6 +311,11 @@ class WinUISkiaLayer(
             renderRequestedWhileUnloaded = true
             return
         }
+        if (renderRequestedWhileUnloaded && currentRenderState() != null) {
+            renderRequestedWhileUnloaded = false
+            renderDispatcher.scheduleRender(throttledToVsync = false)
+            return
+        }
         if (!isDisposed && shouldInvalidateRender()) {
             renderDispatcher.scheduleRender(throttledToVsync = false)
         }
@@ -401,9 +408,9 @@ class WinUISkiaLayer(
         sizeChangedToken = null
         compositionScaleChangedToken?.let(panel.compositionScaleChanged::remove)
         compositionScaleChangedToken = null
-        loadedToken?.let(hostPanel.loaded::remove)
+        loadedToken?.let(hostPanel.component.loaded::remove)
         loadedToken = null
-        unloadedToken?.let(hostPanel.unloaded::remove)
+        unloadedToken?.let(hostPanel.component.unloaded::remove)
         unloadedToken = null
         inputInterop.close()
         accessibilityInterop.close()
@@ -424,7 +431,11 @@ class WinUISkiaLayer(
     }
 
     private fun renderNow(throttledToVsync: Boolean) {
-        val state = currentRenderState() ?: return
+        val state = currentRenderState()
+        if (state == null) {
+            renderRequestedWhileUnloaded = true
+            return
+        }
         val platformResult = try {
             platformInterop.render(
                 width = state.scaledWidth,
@@ -454,8 +465,8 @@ class WinUISkiaLayer(
             return null
         }
         val scale = contentScale
-        val logicalWidth = hostPanel.actualWidth.toFloat()
-        val logicalHeight = hostPanel.actualHeight.toFloat()
+        val logicalWidth = logicalRenderWidth()
+        val logicalHeight = logicalRenderHeight()
         val scaledWidth = (logicalWidth * scale).roundToInt()
         val scaledHeight = (logicalHeight * scale).roundToInt()
         if (scaledWidth <= 0 || scaledHeight <= 0) {
@@ -476,7 +487,9 @@ class WinUISkiaLayer(
     private fun onLoaded() {
         if (!isDisposed) {
             hasLoadedForRender = true
-            renderRequestedWhileUnloaded = false
+            if (renderRequestedWhileUnloaded) {
+                invalidateRender()
+            }
         }
     }
 
@@ -494,6 +507,32 @@ class WinUISkiaLayer(
         winuiSynchronized(pictureLock) {
             picture?.let(action)
         }
+
+    private fun logicalRenderWidth(): Float =
+        hostPanel.component.width.toRenderableDimension()
+            ?: hostPanel.component.actualWidth.toFloat().takeIf { it > 0f }
+            ?: 0f
+
+    private fun logicalRenderHeight(): Float =
+        hostPanel.component.height.toRenderableDimension()
+            ?: hostPanel.component.actualHeight.toFloat().takeIf { it > 0f }
+            ?: 0f
+
+    private fun Double.toRenderableDimension(): Float? =
+        takeIf { !it.isNaN() && !it.isInfinite() && it > 0.0 }?.toFloat()
+
+    private fun Any.toWinUIWindowOrNull(): Window? {
+        val winRtObject = this as? IWinRTObject ?: return null
+        return winRtObject.nativeObject
+            .queryInterface(Window.Metadata.DEFAULT_INTERFACE_IID)
+            .getOrNull()
+            ?.use { windowReference ->
+                IUnknownReference(
+                    windowReference.getRefPointer(),
+                    Window.Metadata.DEFAULT_INTERFACE_IID,
+                ).use(Window.Metadata::wrap)
+            }
+    }
 
     private fun Throwable.toRenderFailure(
         state: WinUILayerRenderState,

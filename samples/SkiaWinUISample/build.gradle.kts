@@ -32,6 +32,7 @@ plugins {
 }
 
 apply(plugin = "io.github.composefluent.winrt")
+
 apply(from = "../skiko-winui-sample-dependencies.gradle.kts")
 
 repositories {
@@ -51,7 +52,9 @@ repositories {
     maven("https://redirector.kotlinlang.org/maven/compose-dev")
 }
 
-val skikoWinuiDependencyNotations = extra["skikoWinuiDependencyNotations"] as List<Any>
+val skikoWinuiDependencyNotations =
+    extra["skikoWinuiCommonDependencyNotations"] as List<Any> +
+        extra["skikoWinuiJvmDependencyNotations"] as List<Any>
 dependencies {
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
     implementation(kotlin("stdlib"))
@@ -70,7 +73,55 @@ java {
 }
 
 extensions.configure<io.github.composefluent.winrt.gradle.WinRtExtension>("winRt") {
-    application { }
+    windowsSdk("10.0.26100.0", includeExtensions = false, generateProjection = true)
+    nugetPackage("Microsoft.WindowsAppSDK", "2.1.3") {
+        generateProjection = true
+    }
+    application {
+        mainClass.set("SkiaWinUISample.AppKt")
+    }
+    listOf(
+        "Microsoft.UI.Dispatching.DispatcherQueue",
+        "Microsoft.UI.Dispatching.DispatcherQueueTimer",
+        "Microsoft.UI.Input.PointerDeviceType",
+        "Microsoft.UI.Input.PointerPointProperties",
+        "Microsoft.UI.Input.PointerUpdateKind",
+        "Microsoft.UI.Xaml.Application",
+        "Microsoft.UI.Xaml.Controls.Grid",
+        "Microsoft.UI.Xaml.Controls.SwapChainPanel",
+        "Microsoft.UI.Xaml.Controls.UIElementCollection",
+        "Microsoft.UI.Xaml.FocusState",
+        "Microsoft.UI.Xaml.FrameworkElement",
+        "Microsoft.UI.Xaml.HorizontalAlignment",
+        "Microsoft.UI.Xaml.Input.CharacterReceivedRoutedEventArgs",
+        "Microsoft.UI.Xaml.Input.KeyRoutedEventArgs",
+        "Microsoft.UI.Xaml.Input.PointerRoutedEventArgs",
+        "Microsoft.UI.Xaml.LaunchActivatedEventArgs",
+        "Microsoft.UI.Xaml.Media.MicaBackdrop",
+        "Microsoft.UI.Xaml.RoutedEventHandler",
+        "Microsoft.UI.Xaml.UIElement",
+        "Microsoft.UI.Xaml.VerticalAlignment",
+        "Microsoft.UI.Xaml.Window",
+        "Microsoft.UI.Xaml.WindowEventArgs",
+        "Windows.Foundation.Rect",
+        "Windows.Foundation.TypedEventHandler",
+        "Windows.System.VirtualKey",
+        "Windows.System.VirtualKeyModifiers",
+        "Windows.UI.Text.Core.CoreTextCompositionCompletedEventArgs",
+        "Windows.UI.Text.Core.CoreTextCompositionStartedEventArgs",
+        "Windows.UI.Text.Core.CoreTextEditContext",
+        "Windows.UI.Text.Core.CoreTextInputPaneDisplayPolicy",
+        "Windows.UI.Text.Core.CoreTextInputScope",
+        "Windows.UI.Text.Core.CoreTextLayoutRequestedEventArgs",
+        "Windows.UI.Text.Core.CoreTextRange",
+        "Windows.UI.Text.Core.CoreTextSelectionRequestedEventArgs",
+        "Windows.UI.Text.Core.CoreTextSelectionUpdatingEventArgs",
+        "Windows.UI.Text.Core.CoreTextSelectionUpdatingResult",
+        "Windows.UI.Text.Core.CoreTextServicesManager",
+        "Windows.UI.Text.Core.CoreTextTextRequestedEventArgs",
+        "Windows.UI.Text.Core.CoreTextTextUpdatingEventArgs",
+        "Windows.UI.Text.Core.CoreTextTextUpdatingResult",
+    ).forEach(::type)
 }
 
 tasks.named<JavaExec>("run") {

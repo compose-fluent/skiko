@@ -33,6 +33,9 @@ val hasSigningKey = providers.gradleProperty("signingInMemoryKey")
 val hasSigningPassword = providers.gradleProperty("signingInMemoryKeyPassword")
     .map(String::isNotBlank)
     .orElse(false)
+val winuiMingwEnabled = providers.gradleProperty("skiko.winui.mingw.enabled")
+    .map(String::toBoolean)
+    .orElse(true)
 
 tasks.register<Jar>("skikoWinuiSourcesJar") {
     group = "build"
@@ -62,6 +65,20 @@ tasks.register<Jar>("skikoWinuiWindowsRuntimeJavadocJar") {
     group = "build"
     description = "Builds an empty skiko-winui Windows runtime javadoc jar for Maven Central publication."
     archiveBaseName.set("skiko-winui-windows")
+    archiveClassifier.set("javadoc")
+}
+
+tasks.register<Jar>("skikoWinuiMingwRuntimeSourcesJar") {
+    group = "build"
+    description = "Builds the skiko-winui mingw runtime sources jar for Maven publication."
+    archiveBaseName.set("skiko-winui-mingw-runtime")
+    archiveClassifier.set("sources")
+}
+
+tasks.register<Jar>("skikoWinuiMingwRuntimeJavadocJar") {
+    group = "build"
+    description = "Builds an empty skiko-winui mingw runtime javadoc jar for Maven Central publication."
+    archiveBaseName.set("skiko-winui-mingw-runtime")
     archiveClassifier.set("javadoc")
 }
 
@@ -158,6 +175,57 @@ extensions.configure<PublishingExtension>("publishing") {
                 }
             }
         }
+        create("skikoWinuiMingwRuntime", MavenPublication::class.java) {
+            groupId = skikoWinuiGroup.get()
+            artifactId = "skiko-winui-mingw-runtime"
+            version = skikoVersion.get()
+            artifact(tasks.named<Jar>("skikoWinuiMingwRuntimeJar"))
+            artifact(tasks.named("skikoWinuiMingwRuntimeSourcesJar"))
+            artifact(tasks.named("skikoWinuiMingwRuntimeJavadocJar"))
+            pom {
+                name.set("Skiko WinUI MinGW Runtime")
+                description.set("Kotlin/Native mingwX64 native runtime for the AWT-free Skiko WinUI backend")
+                url.set("https://github.com/compose-fluent/skiko")
+                licenses {
+                    license {
+                        name.set("Apache License, Version 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0")
+                    }
+                }
+                developers {
+                    developer {
+                        id.set("composefluent")
+                        name.set("Compose Fluent")
+                        url.set("https://github.com/compose-fluent")
+                    }
+                }
+                scm {
+                    url.set("https://github.com/compose-fluent/skiko")
+                    connection.set("scm:git:git://github.com/compose-fluent/skiko.git")
+                    developerConnection.set("scm:git:ssh://git@github.com/compose-fluent/skiko.git")
+                }
+            }
+        }
+        if (winuiMingwEnabled.get()) {
+            named("winuiMingw", MavenPublication::class.java) {
+                groupId = skikoWinuiGroup.get()
+                artifactId = "skiko-winui-mingw"
+                version = skikoVersion.get()
+                pom.withXml {
+                    val root = asNode()
+                    val dependencies = (root.get("dependencies") as groovy.util.NodeList)
+                        .filterIsInstance<groovy.util.Node>()
+                        .firstOrNull()
+                        ?: root.appendNode("dependencies")
+                    dependencies.appendNode("dependency").apply {
+                        appendNode("groupId", skikoWinuiGroup.get())
+                        appendNode("artifactId", "skiko-winui-mingw-runtime")
+                        appendNode("version", skikoVersion.get())
+                        appendNode("scope", "runtime")
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -174,27 +242,42 @@ extensions.configure<SigningExtension>("signing") {
 
 tasks.register("publishSkikoWinuiToMavenLocal") {
     group = "publishing"
-    description = "Publishes the current skiko-winui JVM and Windows runtime artifacts to Maven Local."
-    dependsOn(
+    description = "Publishes the current skiko-winui JVM, mingw, and Windows runtime artifacts to Maven Local."
+    val publicationTasks = mutableListOf(
         "publishSkikoWinuiJvmPublicationToMavenLocal",
         "publishSkikoWinuiWindowsRuntimePublicationToMavenLocal",
     )
+    if (winuiMingwEnabled.get()) {
+        publicationTasks += "publishWinuiMingwPublicationToMavenLocal"
+        publicationTasks += "publishSkikoWinuiMingwRuntimePublicationToMavenLocal"
+    }
+    dependsOn(publicationTasks)
 }
 
 tasks.register("publishSkikoWinuiToBuildRepo") {
     group = "publishing"
-    description = "Publishes the current skiko-winui JVM and Windows runtime artifacts to the local BuildRepo."
-    dependsOn(
+    description = "Publishes the current skiko-winui JVM, mingw, and Windows runtime artifacts to the local BuildRepo."
+    val publicationTasks = mutableListOf(
         "publishSkikoWinuiJvmPublicationToBuildRepoRepository",
         "publishSkikoWinuiWindowsRuntimePublicationToBuildRepoRepository",
     )
+    if (winuiMingwEnabled.get()) {
+        publicationTasks += "publishWinuiMingwPublicationToBuildRepoRepository"
+        publicationTasks += "publishSkikoWinuiMingwRuntimePublicationToBuildRepoRepository"
+    }
+    dependsOn(publicationTasks)
 }
 
 tasks.register("publishSkikoWinuiToMavenCentral") {
     group = "publishing"
-    description = "Publishes the current skiko-winui JVM and Windows runtime artifacts to Maven Central."
-    dependsOn(
+    description = "Publishes the current skiko-winui JVM, mingw, and Windows runtime artifacts to Maven Central."
+    val publicationTasks = mutableListOf(
         "publishSkikoWinuiJvmPublicationToMavenCentralRepository",
         "publishSkikoWinuiWindowsRuntimePublicationToMavenCentralRepository",
     )
+    if (winuiMingwEnabled.get()) {
+        publicationTasks += "publishWinuiMingwPublicationToMavenCentralRepository"
+        publicationTasks += "publishSkikoWinuiMingwRuntimePublicationToMavenCentralRepository"
+    }
+    dependsOn(publicationTasks)
 }

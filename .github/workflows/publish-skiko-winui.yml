@@ -107,7 +107,8 @@ jobs:
               -Dorg.gradle.parallel=false \
               -Pskiko.winui.jvmTarget=25 \
               -Pskiko.winui.jvmToolchain=25 \
-              -Pskiko.winui.mingw.enabled=false \
+              -Pskiko.winui.mingw.enabled=true \
+              -Pskiko.native.windows.enabled=true \
               -Pskiko.winui.skipSamples=true \
               :skiko-winui:publishSkikoWinuiToMavenLocal && exit 0
             if [ "$attempt" = "3" ]; then
@@ -131,7 +132,8 @@ jobs:
               -Dorg.gradle.parallel=false \
               -Pskiko.winui.jvmTarget=25 \
               -Pskiko.winui.jvmToolchain=25 \
-              -Pskiko.winui.mingw.enabled=false \
+              -Pskiko.winui.mingw.enabled=true \
+              -Pskiko.native.windows.enabled=true \
               -Pskiko.winui.skipSamples=true \
               :skiko-winui:publishSkikoWinuiToMavenCentral && exit 0
             if [ "$attempt" = "3" ]; then

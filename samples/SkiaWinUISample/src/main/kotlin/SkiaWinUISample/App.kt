@@ -42,7 +42,6 @@ class SkiaWinUISampleApp : Application() {
         activeApplication = this
         val skiaLayer = WinUISkiaLayer()
         val scene = ClocksWinUI(
-            scaleProvider = { skiaLayer.contentScale },
             renderProvider = { skiaLayer.renderApi },
         )
         skiaLayer.renderDelegate = WinUISkiaLayerRenderDelegate(skiaLayer, scene)
@@ -74,7 +73,6 @@ private var activeWindow: Window? = null
 private var activeLayer: WinUISkiaLayer? = null
 
 private class ClocksWinUI(
-    private val scaleProvider: () -> Float,
     private val renderProvider: () -> GraphicsApi = { GraphicsApi.UNKNOWN },
 ) : SkikoRenderDelegate, WinUIInputHandler {
     private val typeface = FontMgr.default.makeFromFile("fonts/JetBrainsMono-Regular.ttf")
@@ -119,9 +117,8 @@ private class ClocksWinUI(
             event.type == WinUIPointerEventType.PRESSED ||
             event.type == WinUIPointerEventType.ENTERED
         ) {
-            val scale = scaleProvider().coerceAtLeast(1f)
-            xpos = (event.x / scale).toInt()
-            ypos = (event.y / scale).toInt()
+            xpos = event.x.toInt()
+            ypos = event.y.toInt()
         }
         return false
     }

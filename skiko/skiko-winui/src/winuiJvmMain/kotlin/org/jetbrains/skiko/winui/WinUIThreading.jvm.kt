@@ -1,4 +1,8 @@
 package org.jetbrains.skiko.winui
 
-internal actual inline fun <T> winuiSynchronized(lock: Any, block: () -> T): T =
-    synchronized(lock, block)
+internal actual class WinUILock {
+    internal val monitor = Any()
+}
+
+internal actual inline fun <T> winuiSynchronized(lock: WinUILock, block: () -> T): T =
+    synchronized(lock.monitor, block)

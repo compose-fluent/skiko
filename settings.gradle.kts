@@ -24,6 +24,7 @@ fun settingsFlag(name: String): Boolean {
 if (!settingsFlag("skiko.winui.skipSamples")) {
     includeBuild("samples/SkiaAwtSample")
     includeBuild("samples/SkiaWinUISample")
+    includeBuild("samples/SkiaWinUIMingwSmoke")
 }
 if (!settingsFlag("skiko.winui.skipSkikoComposite")) {
     includeBuild("skiko")

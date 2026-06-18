@@ -1,15 +1,32 @@
 package org.jetbrains.skiko.winui
 
+import microsoft.ui.xaml.FrameworkElement
 import microsoft.ui.xaml.automation.peers.AutomationPeer
 import microsoft.ui.xaml.controls.Grid
 import microsoft.ui.xaml.controls.SwapChainPanel
 import windows.foundation.Rect
 import windows.foundation.Size
 
-class WinUISkiaHostPanel : Grid() {
-    val renderPanel: SwapChainPanel = SwapChainPanel()
-    internal var automationPeerCreateCount: Int = 0
+internal interface WinUISkiaHost {
+    val component: FrameworkElement
+    val renderPanel: SwapChainPanel
+    val automationPeerCreateCount: Int
+
+    fun bindLayer(layer: WinUISkiaLayer)
+}
+
+class WinUISkiaHostPanel : Grid(), WinUISkiaHost {
+    override val component: FrameworkElement
+        get() = this
+
+    override val renderPanel: SwapChainPanel = SwapChainPanel()
+
+    internal var automationPeerCreatedCount: Int = 0
         private set
+
+    override val automationPeerCreateCount: Int
+        get() = automationPeerCreatedCount
+
     private var layer: WinUISkiaLayer? = null
 
     init {
@@ -17,7 +34,7 @@ class WinUISkiaHostPanel : Grid() {
         children?.add(renderPanel)
     }
 
-    internal fun bindLayer(layer: WinUISkiaLayer) {
+    override fun bindLayer(layer: WinUISkiaLayer) {
         check(this.layer == null || this.layer === layer) {
             "WinUISkiaHostPanel is already bound to another WinUISkiaLayer."
         }
@@ -25,7 +42,7 @@ class WinUISkiaHostPanel : Grid() {
     }
 
     override fun onCreateAutomationPeer(): AutomationPeer {
-        automationPeerCreateCount += 1
+        automationPeerCreatedCount += 1
         return layer?.let(::WinUISkiaAutomationPeer) ?: super.onCreateAutomationPeer()
     }
 
@@ -39,3 +56,5 @@ class WinUISkiaHostPanel : Grid() {
         return finalSize
     }
 }
+
+internal expect fun createWinUISkiaHost(): WinUISkiaHost

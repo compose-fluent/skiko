@@ -46,6 +46,16 @@ dependencyResolutionManagement {
 
 rootProject.name = "SkiaMultiplatformSample"
 
+if (providers.gradleProperty("skiko.winui.useLocalProject").map(String::toBoolean).getOrElse(false)) {
+    includeBuild("../../skiko") {
+        dependencySubstitution {
+            substitute(module("org.jetbrains.skiko:skiko")).using(project(":"))
+        }
+    }
+    include("skiko-winui")
+    project(":skiko-winui").projectDir = file("../../skiko/skiko-winui")
+}
+
 if (extra.properties.getOrDefault("skiko.composite.build", "") == "1") {
     includeBuild("../../skiko") {
         dependencySubstitution {
