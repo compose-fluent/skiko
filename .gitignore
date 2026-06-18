@@ -16,3 +16,4 @@ skiko/src/jvmMain/java
 AGENTS.md
 KOTLIN_WINRT_UPSTREAM_ISSUE.md
 hs_err_pid*.log
+**/kotlin-js-store/

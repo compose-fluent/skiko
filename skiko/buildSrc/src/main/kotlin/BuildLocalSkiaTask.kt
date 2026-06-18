@@ -11,6 +11,9 @@ import javax.inject.Inject
 
 abstract class BuildLocalSkiaTask : DefaultTask() {
 
+    @get:Inject
+    abstract val execOperations: ExecOperations
+
     @get:Input
     abstract val skiaVersion: Property<String>
 
@@ -25,9 +28,6 @@ abstract class BuildLocalSkiaTask : DefaultTask() {
 
     @get:Internal
     abstract val skikoTargetFlags: ListProperty<String>
-
-    @get:Inject
-    abstract val execOperations: ExecOperations
 
     @TaskAction
     fun buildSkia() {
@@ -118,7 +118,8 @@ abstract class BuildLocalSkiaTask : DefaultTask() {
         val output = ByteArrayOutputStream()
         val result = execOperations.exec {
             workingDir = skiaRepoRoot
-            commandLine = fullCommand
+            executable = fullCommand.first()
+            args(fullCommand.drop(1))
             standardOutput = output
             errorOutput = output
             isIgnoreExitValue = true

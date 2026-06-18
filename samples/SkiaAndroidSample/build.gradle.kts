@@ -12,7 +12,7 @@ buildscript {
     }
 
     dependencies {
-        classpath("com.android.tools.build:gradle:8.9.0")
+        classpath("com.android.tools.build:gradle:9.0.0")
     }
 }
 
@@ -26,7 +26,7 @@ repositories {
 }
 
 plugins {
-    id("com.android.application") version "8.9.0"
+    id("com.android.application") version "9.0.0"
     kotlin("android") version "2.4.0"
 }
 
@@ -38,12 +38,12 @@ val jniDir = "${projectDir.absolutePath}/src/main/jniLibs"
 // TODO: filter .so files only.
 val unzipTaskX64 = tasks.register("unzipNativeX64", Copy::class) {
     destinationDir = file("$jniDir/x86_64")
-    from(skikoNativeX64.map { zipTree(it) })
+    from({ skikoNativeX64.files.map { zipTree(it) } })
 }
 
 val unzipTaskArm64 = tasks.register("unzipNativeArm64", Copy::class) {
     destinationDir = file("$jniDir/arm64-v8a")
-    from(skikoNativeArm64.map { zipTree(it) })
+    from({ skikoNativeArm64.files.map { zipTree(it) } })
 }
 
 android {

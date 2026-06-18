@@ -36,6 +36,9 @@ Current scope is a usable WinUI backend: host a WinUI surface, render with Direc
 - [x] `samples/SkiaWinUISample` is the current full app-host validation path for runtime assets and native WinUI app host generation.
 - [x] `runWinuiJvmSmoke` is a library smoke task. It can reuse an app package runtime assets directory via `-Pskiko.winui.runtimeAssetsRoot=...`; by default it points at `samples/SkiaWinUISample/build/kotlin-winrt/application-package`.
 - [x] `runWinuiJvmSmoke` can use a prebuilt Windows runtime jar via `-Pskiko.winui.windowsRuntimeJar=...` for focused JVM smoke runs. Without this property, it builds the current runtime jar.
+- [x] 2026-06-18 synced `origin/master` into `winui_dev`: Gradle wrapper 9.5.0, Skia `m149-ace6f426df`, AGP 9.0, Android KMP library migration, BreakIterator Android crash fix, and Skia symbol visibility buildSrc tasks were merged. Conflict resolution kept `skiko-winui` / WinUI sample Kotlin 2.4 and WinUI source-set work intact.
+- [x] 2026-06-18 merge validation found and fixed a buildSrc merge artifact in `BuildLocalSkiaTask.kt`: duplicate injected `execOperations` declaration after taking upstream `executable` / `args` process invocation changes.
+- [x] 2026-06-18 post-merge Gradle 9.5 validation passed: `.\gradlew.bat --no-daemon --stacktrace --console=plain -p . --no-configuration-cache --max-workers=1 "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" "-Pskiko.winui.mingw.enabled=false" "-Pskiko.winui.skipSamples=true" :skiko-winui:tasks --all`.
 
 ## Active Work
 
