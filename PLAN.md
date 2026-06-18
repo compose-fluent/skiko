@@ -39,6 +39,8 @@ Current scope is a usable WinUI backend: host a WinUI surface, render with Direc
 - [x] 2026-06-18 synced `origin/master` into `winui_dev`: Gradle wrapper 9.5.0, Skia `m149-ace6f426df`, AGP 9.0, Android KMP library migration, BreakIterator Android crash fix, and Skia symbol visibility buildSrc tasks were merged. Conflict resolution kept `skiko-winui` / WinUI sample Kotlin 2.4 and WinUI source-set work intact.
 - [x] 2026-06-18 merge validation found and fixed a buildSrc merge artifact in `BuildLocalSkiaTask.kt`: duplicate injected `execOperations` declaration after taking upstream `executable` / `args` process invocation changes.
 - [x] 2026-06-18 post-merge Gradle 9.5 validation passed: `.\gradlew.bat --no-daemon --stacktrace --console=plain -p . --no-configuration-cache --max-workers=1 "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" "-Pskiko.winui.mingw.enabled=false" "-Pskiko.winui.skipSamples=true" :skiko-winui:tasks --all`.
+- [x] 2026-06-18 CI run `27761356397` failed in `:skiko-winui:compileKotlinWinuiJvm` because kotlin-winrt authoring support is generated into `commonMain` while hand-written authoring types were only reachable through the intermediate `winuiMain` source set.
+- [x] 2026-06-18 fixed the post-merge CI compile failure by compiling `src/winuiMain/kotlin` as part of `commonMain`, keeping `winuiJvmMain` and `winuiMingwMain` directly dependent on `commonMain`, and aligning the publish workflow Gradle version with the 9.5.0 wrapper.
 
 ## Active Work
 
@@ -66,6 +68,7 @@ Current scope is a usable WinUI backend: host a WinUI surface, render with Direc
   - Command:
     `gradle :skiko-winui:compileKotlinWinuiJvm :skiko-winui:compileTestKotlinWinuiJvm "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" --no-configuration-cache --no-daemon --console=plain`
   - Result on 2026-06-10: passed after removing the incorrect `microsoft/**` / `windows/**` jar excludes.
+  - Result on 2026-06-18: `.\gradlew.bat --no-daemon --stacktrace --console=plain -p . --no-configuration-cache --max-workers=1 "-Pskiko.winui.jvmTarget=25" "-Pskiko.winui.jvmToolchain=25" "-Pskiko.winui.mingw.enabled=false" "-Pskiko.winui.skipSamples=true" :skiko-winui:compileKotlinWinuiJvm` passed after moving the WinUI source directory into `commonMain`.
   - Note: KMP dependency checker still reports known `winuiMingw` unresolved `org.jetbrains.skiko:skiko` variant diagnostics; JVM compile tasks exit successfully.
 
 - [x] JVM publication shape
