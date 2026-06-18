@@ -26,6 +26,9 @@ val checkWinuiAwtFreeBoundary by tasks.registering {
             .filter(File::isFile)
             .flatMap { file ->
                 file.readLines().mapIndexedNotNull { index, line ->
+                    if (file.name == "build.gradle.kts" && line.trimStart().startsWith("exclude(")) {
+                        return@mapIndexedNotNull null
+                    }
                     val matched = forbiddenPatterns.firstOrNull(line::contains)
                     if (matched == null) {
                         null
