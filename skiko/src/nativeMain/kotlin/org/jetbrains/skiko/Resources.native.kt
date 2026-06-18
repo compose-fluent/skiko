@@ -11,7 +11,7 @@ actual suspend fun loadBytesFromPath(path: String): ByteArray {
         throw Error("Can not open file '$path': $error")
     }
 
-    val size = file.let {
+    val size: Long = file.let {
         fseek(it, 0, SEEK_END)
         val size = ftell(it).toLong()
         fseek(it, 0, SEEK_SET)
@@ -34,12 +34,12 @@ actual suspend fun loadBytesFromPath(path: String): ByteArray {
     }
 
     val bytes = ByteArray(size.toInt())
-    val result = bytes.usePinned {
-        fread(it.addressOf(0), 1UL, size.toULong(), file)
+    val result: Long = bytes.usePinned {
+        fread(it.addressOf(0), 1UL, size.toULong(), file).toLong()
     }
     fclose(file)
 
-    if (result != size.toULong()) {
+    if (result != size) {
         throw Error("Can not read file '$path'")
     }
 
