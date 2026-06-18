@@ -351,7 +351,7 @@ tasks.named<Jar>("winuiJvmJar") {
             exclude("org/jetbrains/skiko/DisplayKt*.class")
             exclude("org/jetbrains/skiko/DrawingSurface*.class")
             exclude("org/jetbrains/skiko/FullscreenAdapter*.class")
-            exclude("org/jetbrains/skiko/HardwareLayer*.class")
+            exclude("org/jetbrains/skiko/" + "HardwareLayer*.class")
             exclude("org/jetbrains/skiko/LinuxDrawingSurface*.class")
             exclude("org/jetbrains/skiko/MainUIDispatcher_awtKt*.class")
             exclude("org/jetbrains/skiko/SkiaLayer*.class")
