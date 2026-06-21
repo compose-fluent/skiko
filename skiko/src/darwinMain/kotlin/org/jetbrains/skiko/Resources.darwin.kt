@@ -6,7 +6,7 @@ import kotlinx.cinterop.usePinned
 import platform.posix.*
 
 internal actual fun loadBytesFromNativePath(path: String): ByteArray {
-    val file = fopen(path, "r") ?: run {
+    val file = fopen(path, "rb") ?: run {
         val error = strerror(errno)?.toKString() ?: "Unknown error"
         throw Error("Can not open file '$path': $error")
     }

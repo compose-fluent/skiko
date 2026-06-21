@@ -117,7 +117,11 @@ internal object WinUISkiaLayerNative : WinUIDirect3DRenderBridge {
 
     private fun nativeFailure(operation: String): WinUIRenderException {
         val lastError = getLastErrorMessage()
-        val message = if (lastError.isBlank()) "$operation failed." else "$operation failed. $lastError"
+        val message = when {
+            lastError.isBlank() -> "$operation failed."
+            lastError.startsWith("$operation failed") -> lastError
+            else -> "$operation failed. $lastError"
+        }
         return WinUIRenderException(message)
     }
 

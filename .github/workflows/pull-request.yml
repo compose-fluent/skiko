@@ -14,8 +14,9 @@ on:
       - 'skiko/build.gradle.kts'
       - 'skiko/buildSrc/**'
       - 'skiko/skiko-winui/**'
+      - 'samples/SkiaWinUISample/**'
+      - 'samples/SkiaWinUIMingwSmoke/**'
       - 'samples/SkiaMultiplatformSample/**'
-      - 'samples/WinUIClockSample/**'
 
 permissions:
   contents: read
