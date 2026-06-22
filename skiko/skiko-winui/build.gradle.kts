@@ -294,6 +294,7 @@ kotlin {
 
     sourceSets {
         commonMain {
+            kotlin.srcDir("src/winuiMain/kotlin")
             dependencies {
                 if (localSkikoJar.isPresent) {
                     implementation(files(rootProject.file(localSkikoJar.get())))
@@ -306,19 +307,15 @@ kotlin {
                 implementation("${kotlinWinRtGroup.get()}:winrt-authoring:${kotlinWinRtVersion.get()}")
             }
         }
-        val winuiMain by creating {
-            dependsOn(commonMain.get())
-            kotlin.srcDir("src/winuiMain/kotlin")
-        }
         named("winuiJvmMain") {
-            dependsOn(winuiMain)
+            dependsOn(commonMain.get())
             dependencies {
                 runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2")
             }
         }
         if (winuiMingwEnabled.get()) {
             named("winuiMingwMain") {
-                dependsOn(winuiMain)
+                dependsOn(commonMain.get())
             }
             named("winuiMingwTest") {
                 dependencies {
