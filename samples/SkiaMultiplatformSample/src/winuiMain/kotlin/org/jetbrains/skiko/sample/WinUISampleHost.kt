@@ -3,7 +3,10 @@ package org.jetbrains.skiko.sample
 import microsoft.ui.dispatching.DispatcherQueue
 import microsoft.ui.dispatching.DispatcherQueueHandler
 import microsoft.ui.xaml.Application
+import microsoft.ui.xaml.HorizontalAlignment
+import microsoft.ui.xaml.VerticalAlignment
 import microsoft.ui.xaml.Window
+import microsoft.ui.xaml.media.MicaBackdrop
 import org.jetbrains.skiko.winui.WinUIDispatcherTimer
 import org.jetbrains.skiko.winui.WinUISkiaLayer
 import org.jetbrains.skiko.winui.WinUISkiaLayerRenderDelegate
@@ -33,21 +36,22 @@ private class WinUISampleSession(
     private val window = Window()
     private val dispatcherQueue = DispatcherQueue.getForCurrentThread()
     private var renderTimer: WinUIDispatcherTimer? = null
-    @Volatile
+    private var timeoutTimer: WinUIDispatcherTimer? = null
     private var isClosed = false
 
     fun launch() {
         println("skia-mpp-winui: create layer")
-        val clocks = WinUIClocks(layer::renderApi)
-        layer.renderDelegate = WinUISkiaLayerRenderDelegate(layer, clocks)
-        layer.inputHandler = clocks
+        val scene = WinUIClockScene(layer::renderApi)
+        layer.renderDelegate = WinUISkiaLayerRenderDelegate(layer, scene)
+        layer.inputHandler = scene
 
         println("skia-mpp-winui: configure component")
-        layer.component.width = 800.0
-        layer.component.height = 600.0
+        layer.component.horizontalAlignment = HorizontalAlignment.Stretch
+        layer.component.verticalAlignment = VerticalAlignment.Stretch
 
         println("skia-mpp-winui: create window")
         window.title = "Skiko WinUI multiplatform sample"
+        window.systemBackdrop = MicaBackdrop()
         layer.attachTo(window)
 
         println("skia-mpp-winui: activate window")
@@ -101,6 +105,8 @@ private class WinUISampleSession(
         isClosed = true
         renderTimer?.close()
         renderTimer = null
+        timeoutTimer?.close()
+        timeoutTimer = null
         println("skia-mpp-winui: close layer")
         layer.close()
         activeWinUISampleSession = null
@@ -129,20 +135,16 @@ private class WinUISampleSession(
     }
 
     private fun startAutoExitTimeout(name: String) {
-        Thread {
-            try {
-                Thread.sleep(5_000)
-            } catch (_: InterruptedException) {
-                return@Thread
-            }
+        timeoutTimer = WinUIDispatcherTimer(
+            interval = 5_000.milliseconds,
+            repeating = false,
+        ) {
             if (!isClosed) {
                 println("skia-mpp-winui: $name auto exit timeout")
                 exitProcess(2)
             }
-        }.also { thread ->
-            thread.name = "Skiko WinUI $name timeout"
-            thread.isDaemon = true
-            thread.start()
+        }.also { timer ->
+            timer.start()
         }
     }
 }

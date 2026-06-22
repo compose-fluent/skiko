@@ -13,10 +13,11 @@ import org.jetbrains.skiko.winui.WinUIKeyEvent
 import org.jetbrains.skiko.winui.WinUIPointerEvent
 import org.jetbrains.skiko.winui.WinUITextInputEvent
 
-class WinUIClocks(renderApi: () -> GraphicsApi) : Clocks(renderApi), WinUIInputHandler {
+class WinUIClockScene(renderApi: () -> GraphicsApi) : Clocks(renderApi), WinUIInputHandler {
     private val fontCollection = FontCollection().setDefaultFontManager(FontMgr.default)
     private val paragraphStyle = ParagraphStyle()
     private var inputSummary = "Input: move pointer or press a key"
+    private var reportedFirstRender = false
 
     override fun onPointerEvent(event: WinUIPointerEvent): Boolean {
         xpos = event.x.toDouble()
@@ -50,6 +51,10 @@ class WinUIClocks(renderApi: () -> GraphicsApi) : Clocks(renderApi), WinUIInputH
     }
 
     override fun onRender(canvas: Canvas, width: Int, height: Int, nanoTime: Long) {
+        if (!reportedFirstRender) {
+            reportedFirstRender = true
+            println("skia-mpp-winui: clock render $width x $height")
+        }
         super.onRender(canvas, width, height, nanoTime)
         drawInputSummary(canvas, height)
     }

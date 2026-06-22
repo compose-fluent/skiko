@@ -105,9 +105,11 @@ jobs:
           for attempt in 1 2 3; do
             gradle -p . --no-daemon --stacktrace --no-configuration-cache --max-workers=1 \
               -Dorg.gradle.parallel=false \
+              -Pskiko.winui.enabled=true \
               -Pskiko.winui.jvmTarget=25 \
               -Pskiko.winui.jvmToolchain=25 \
-              -Pskiko.winui.mingw.enabled=false \
+              -Pskiko.winui.mingw.enabled=true \
+              -Pskiko.native.windows.enabled=true \
               -Pskiko.winui.skipSamples=true \
               :skiko-winui:publishSkikoWinuiToMavenLocal && exit 0
             if [ "$attempt" = "3" ]; then
@@ -129,9 +131,11 @@ jobs:
           for attempt in 1 2 3; do
             gradle -p . --no-daemon --stacktrace --no-configuration-cache --max-workers=1 \
               -Dorg.gradle.parallel=false \
+              -Pskiko.winui.enabled=true \
               -Pskiko.winui.jvmTarget=25 \
               -Pskiko.winui.jvmToolchain=25 \
-              -Pskiko.winui.mingw.enabled=false \
+              -Pskiko.winui.mingw.enabled=true \
+              -Pskiko.native.windows.enabled=true \
               -Pskiko.winui.skipSamples=true \
               :skiko-winui:publishSkikoWinuiToMavenCentral && exit 0
             if [ "$attempt" = "3" ]; then

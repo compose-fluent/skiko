@@ -8,7 +8,7 @@ internal class WinUIRenderDispatcher(
     private val isDisposed: () -> Boolean,
     private val renderNow: (throttledToVsync: Boolean) -> Unit,
 ) : AutoCloseable {
-    private val lock = Any()
+    private val lock = WinUILock()
     private var pendingRender = false
     private var pendingRenderThrottledToVsync = true
     private var isPendingRenderEnqueued = false

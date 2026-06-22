@@ -23,10 +23,15 @@ fun settingsFlag(name: String): Boolean {
 
 if (!settingsFlag("skiko.winui.skipSamples")) {
     includeBuild("samples/SkiaAwtSample")
+}
+if (settingsFlag("skiko.winui.enabled") && settingsFlag("skiko.winui.samples.enabled") && !settingsFlag("skiko.winui.skipSamples")) {
     includeBuild("samples/SkiaWinUISample")
+    includeBuild("samples/SkiaWinUIMingwSmoke")
 }
 if (!settingsFlag("skiko.winui.skipSkikoComposite")) {
     includeBuild("skiko")
 }
-include("skiko-winui")
-project(":skiko-winui").projectDir = file("skiko/skiko-winui")
+if (settingsFlag("skiko.winui.enabled")) {
+    include("skiko-winui")
+    project(":skiko-winui").projectDir = file("skiko/skiko-winui")
+}

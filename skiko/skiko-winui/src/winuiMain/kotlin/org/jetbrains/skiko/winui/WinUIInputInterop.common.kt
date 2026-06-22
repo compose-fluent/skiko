@@ -12,8 +12,8 @@ import microsoft.ui.xaml.input.KeyEventHandler
 import microsoft.ui.xaml.input.KeyRoutedEventArgs
 import microsoft.ui.xaml.input.PointerEventHandler
 import microsoft.ui.xaml.input.PointerRoutedEventArgs
-import windows.foundation.TypedEventHandler
 import windows.foundation.Rect
+import windows.foundation.TypedEventHandler
 import windows.system.VirtualKey
 import windows.system.VirtualKeyModifiers
 import windows.ui.text.core.CoreTextCompositionCompletedEventArgs
@@ -31,10 +31,24 @@ import windows.ui.text.core.CoreTextTextRequestedEventArgs
 import windows.ui.text.core.CoreTextTextUpdatingEventArgs
 import windows.ui.text.core.CoreTextTextUpdatingResult
 
-internal class WinUIInputInterop(
+internal interface WinUIInputInterop : AutoCloseable {
+    fun updateTextInputState(
+        text: String,
+        selection: WinUITextRange,
+        compositionRange: WinUITextRange,
+    )
+
+    fun updateTextInputLayout(bounds: WinUITextLayoutBounds)
+    fun notifyTextInputLayoutChanged()
+}
+
+internal fun createWinUIInputInterop(layer: WinUISkiaLayer, panel: SwapChainPanel): WinUIInputInterop =
+    WinUIInputInteropCommon(layer, panel)
+
+internal class WinUIInputInteropCommon(
     private val layer: WinUISkiaLayer,
     private val panel: SwapChainPanel,
-) : AutoCloseable {
+) : WinUIInputInterop {
     private val eventTokens = mutableListOf<WinUIInputEventToken>()
     private val keyboardModifiers = WinUIKeyboardModifierState()
     private val textCompositionInterop = WinUITextCompositionInterop(
@@ -58,7 +72,7 @@ internal class WinUIInputInterop(
         textCompositionInterop.close()
     }
 
-    fun updateTextInputState(
+    override fun updateTextInputState(
         text: String,
         selection: WinUITextRange,
         compositionRange: WinUITextRange,
@@ -66,11 +80,11 @@ internal class WinUIInputInterop(
         textCompositionInterop.updateTextInputState(text, selection, compositionRange)
     }
 
-    fun updateTextInputLayout(bounds: WinUITextLayoutBounds) {
+    override fun updateTextInputLayout(bounds: WinUITextLayoutBounds) {
         textCompositionInterop.updateTextInputLayout(bounds)
     }
 
-    fun notifyTextInputLayoutChanged() {
+    override fun notifyTextInputLayoutChanged() {
         textCompositionInterop.notifyTextInputLayoutChanged()
     }
 
@@ -379,18 +393,20 @@ private class WinUITextCompositionInterop(
             return
         }
         val bounds = request.layoutBounds ?: request.layoutBoundsVisualPixels ?: return
+        val fallbackWidth = layer.width
+        val fallbackHeight = layer.height
         val fallbackBounds = WinUITextLayoutBounds(
             textBounds = WinUIRect(
                 x = 0f,
                 y = 0f,
-                width = panel.actualWidth.toFloat(),
-                height = panel.actualHeight.toFloat(),
+                width = fallbackWidth,
+                height = fallbackHeight,
             ),
             controlBounds = WinUIRect(
                 x = 0f,
                 y = 0f,
-                width = panel.actualWidth.toFloat(),
-                height = panel.actualHeight.toFloat(),
+                width = fallbackWidth,
+                height = fallbackHeight,
             ),
         )
         val currentBounds = layoutBounds ?: fallbackBounds
@@ -469,7 +485,7 @@ private class WinUITextCompositionInterop(
     }
 }
 
-private class WinUIInputEventToken(
+internal class WinUIInputEventToken(
     private val token: EventRegistrationToken,
     private val removeToken: (EventRegistrationToken) -> Unit,
 ) {
@@ -503,6 +519,16 @@ private class WinUIKeyboardModifierState {
     private fun hasAny(vararg keys: VirtualKey): Boolean = keys.any(pressedKeys::contains)
 }
 
+internal fun WinUITextRange.boundedBy(length: Int): WinUITextRange {
+    val boundedStart = start.coerceIn(0, length)
+    val boundedEnd = end.coerceIn(0, length)
+    return if (boundedStart <= boundedEnd) {
+        WinUITextRange(boundedStart, boundedEnd)
+    } else {
+        WinUITextRange(boundedEnd, boundedStart)
+    }
+}
+
 private fun CoreTextRange.toWinUITextRange(): WinUITextRange =
     WinUITextRange(
         start = startCaretPosition,
@@ -522,16 +548,6 @@ private fun WinUIRect.toRect(): Rect =
         width = width,
         height = height,
     )
-
-private fun WinUITextRange.boundedBy(length: Int): WinUITextRange {
-    val boundedStart = start.coerceIn(0, length)
-    val boundedEnd = end.coerceIn(0, length)
-    return if (boundedStart <= boundedEnd) {
-        WinUITextRange(boundedStart, boundedEnd)
-    } else {
-        WinUITextRange(boundedEnd, boundedStart)
-    }
-}
 
 private fun String.slice(range: WinUITextRange): String =
     substring(range.start, range.end)

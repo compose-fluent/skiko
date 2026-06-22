@@ -3,7 +3,9 @@ package org.jetbrains.skiko.winui
 import org.jetbrains.skia.impl.Library
 import java.nio.file.Files
 
-internal object WinUISkiaLayerNative {
+internal actual val WinUINullPointer: WinUINativePointer = 0L
+
+internal object WinUISkiaLayerNative : WinUIDirect3DRenderBridge {
     private var isLoaded = false
 
     @Synchronized
@@ -40,51 +42,46 @@ internal object WinUISkiaLayerNative {
     private const val NATIVE_LIBRARY_RESOURCE =
         "/org/jetbrains/skiko/winui/native/windows-x64/$NATIVE_LIBRARY_FILE"
 
-    @JvmStatic
-    external fun chooseAdapter(adapterPriority: Int): Long
+    override external fun chooseAdapter(adapterPriority: Int): WinUINativePointer
 
-    @JvmStatic
-    external fun createDirectXDeviceForSwapChainPanel(adapter: Long, panelPointer: Long): Long
+    override external fun createDirectXDeviceForSwapChainPanel(
+        adapter: WinUINativePointer,
+        panelPointer: WinUINativePointer,
+    ): WinUINativePointer
 
-    @JvmStatic
-    external fun getAdapterPtr(device: Long): Long
+    override external fun getAdapterPtr(device: WinUINativePointer): WinUINativePointer
 
-    @JvmStatic
-    external fun getDevicePtr(device: Long): Long
+    override external fun getDevicePtr(device: WinUINativePointer): WinUINativePointer
 
-    @JvmStatic
-    external fun getQueuePtr(device: Long): Long
+    override external fun getQueuePtr(device: WinUINativePointer): WinUINativePointer
 
-    @JvmStatic
-    external fun initSwapChain(device: Long, width: Int, height: Int)
+    override external fun initSwapChain(device: WinUINativePointer, width: Int, height: Int)
 
-    @JvmStatic
-    external fun initFence(device: Long)
+    override external fun initFence(device: WinUINativePointer)
 
-    @JvmStatic
-    external fun getBufferResourcePtr(device: Long, index: Int): Long
+    override external fun getBufferResourcePtr(device: WinUINativePointer, index: Int): WinUINativePointer
 
-    @JvmStatic
-    external fun getBufferIndex(device: Long): Int
+    override external fun releaseBufferResources(device: WinUINativePointer)
 
-    @JvmStatic
-    external fun present(device: Long, isVsyncEnabled: Boolean)
+    override external fun getBufferIndex(device: WinUINativePointer): Int
 
-    @JvmStatic
-    external fun resizeBuffers(device: Long, width: Int, height: Int)
+    override external fun present(device: WinUINativePointer, isVsyncEnabled: Boolean)
 
-    @JvmStatic
-    external fun setSwapChainTransform(device: Long, contentScaleX: Float, contentScaleY: Float)
+    override external fun resizeBuffers(device: WinUINativePointer, width: Int, height: Int)
 
-    @JvmStatic
-    external fun disposeDevice(device: Long)
+    override external fun setSwapChainTransform(
+        device: WinUINativePointer,
+        contentScaleX: Float,
+        contentScaleY: Float,
+    )
 
-    @JvmStatic
-    external fun getAdapterName(adapter: Long): String
+    override external fun disposeDevice(device: WinUINativePointer)
 
-    @JvmStatic
-    external fun getAdapterMemorySize(adapter: Long): Long
+    override external fun getAdapterName(adapter: WinUINativePointer): String
 
-    @JvmStatic
-    external fun throwRenderExceptionForSmoke(message: String)
+    override external fun getAdapterMemorySize(adapter: WinUINativePointer): Long
+
+    override external fun getLastErrorMessage(): String
+
+    override external fun throwRenderExceptionForSmoke(message: String)
 }

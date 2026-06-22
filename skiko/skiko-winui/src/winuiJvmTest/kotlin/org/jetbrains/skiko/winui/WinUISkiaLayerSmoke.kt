@@ -3,6 +3,8 @@ package org.jetbrains.skiko.winui
 import io.github.composefluent.winrt.runtime.ComVtableInvoker
 import io.github.composefluent.winrt.runtime.Guid
 import io.github.composefluent.winrt.runtime.HResult
+import io.github.composefluent.winrt.runtime.IUnknownReference
+import io.github.composefluent.winrt.runtime.IWinRTObject
 import io.github.composefluent.winrt.runtime.RuntimeScope
 import io.github.composefluent.winrt.runtime.WinRtWindowsAppSdkBootstrap
 import microsoft.ui.dispatching.DispatcherQueue
@@ -45,14 +47,14 @@ object WinUISkiaLayerSmoke {
         println("skiko-winui-smoke: skiko native preloaded")
         println("skiko-winui-smoke: verify native failure exception")
         WinUISkiaLayerNative.ensureLoaded()
-        verifyNativeFailureException()
+        verifyNativeFailureException(winuiDirect3DRenderBridge())
         println("skiko-winui-smoke: native failure exception verified")
         start(options)
     }
 
-    private fun verifyNativeFailureException() {
+    private fun verifyNativeFailureException(bridge: WinUIDirect3DRenderBridge) {
         try {
-            WinUISkiaLayerNative.throwRenderExceptionForSmoke("expected smoke failure")
+            bridge.throwRenderExceptionForSmoke("expected smoke failure")
             error("Expected WinUIRenderException from native smoke hook.")
         } catch (exception: WinUIRenderException) {
             check(exception.message?.contains("expected smoke failure") == true) {
@@ -64,7 +66,7 @@ object WinUISkiaLayerSmoke {
     private fun start(options: SmokeOptions = SmokeOptions()) {
         println("skiko-winui-smoke: bootstrap begin")
         WinRtWindowsAppSdkBootstrap.initialize().use { bootstrap ->
-            println("skiko-winui-smoke: bootstrap=${bootstrap?.bootstrapDll ?: "not-found"}")
+            println("skiko-winui-smoke: bootstrap=${if (bootstrap != null) "initialized" else "not-needed"}")
             println("skiko-winui-smoke: runtime scope begin")
             RuntimeScope.initializeSingleThreaded().use {
                 println("skiko-winui-smoke: application start")
@@ -723,12 +725,12 @@ private class SmokeSession(
         check(children.map { it.getName() }.containsAll(listOf("Smoke button", "Smoke text", "Smoke extra"))) {
             "Expected automation peer children to mirror the accessibility tree, got ${children.map { it.getName() }}."
         }
-        val firstChild = rootPeer.navigate(AutomationNavigationDirection.FirstChild) as? AutomationPeer
+        val firstChild = rootPeer.navigate(AutomationNavigationDirection.FirstChild).toAutomationPeerOrNull()
             ?: error("Expected automation peer first-child navigation to return a peer.")
         check(firstChild.getName() == "Smoke button") {
             "Expected first child peer to be Smoke button."
         }
-        val nextSibling = firstChild.navigate(AutomationNavigationDirection.NextSibling) as? AutomationPeer
+        val nextSibling = firstChild.navigate(AutomationNavigationDirection.NextSibling).toAutomationPeerOrNull()
             ?: error("Expected automation peer next-sibling navigation to return a peer.")
         check(nextSibling.getName() == "Smoke text") {
             "Expected next sibling peer to be Smoke text."
@@ -745,7 +747,7 @@ private class SmokeSession(
             "Expected peer hit-test to return Smoke button, got $hitPeerName. " +
                 "calls=${WinUISkiaAutomationPeer.peerFromPointCallCount}, point=${hitPoint?.x},${hitPoint?.y}."
         }
-        val focusedPeer = rootPeer.getFocusedElement() as? AutomationPeer
+        val focusedPeer = rootPeer.getFocusedElement().toAutomationPeerOrNull()
             ?: error("Expected focused automation element to be a peer.")
         check(focusedPeer.getName() == "Smoke button" && focusedPeer.hasKeyboardFocus()) {
             "Expected focused automation peer to be Smoke button."
@@ -787,6 +789,19 @@ private class SmokeSession(
                 IWINDOW_IID,
             ).use(block)
         }
+    }
+
+    private fun Any?.toAutomationPeerOrNull(): AutomationPeer? {
+        val winRtObject = this as? IWinRTObject ?: return null
+        return winRtObject.nativeObject
+            .queryInterface(AutomationPeer.Metadata.DEFAULT_INTERFACE_IID)
+            .getOrNull()
+            ?.use { peerReference ->
+                IUnknownReference(
+                    peerReference.getRefPointer(),
+                    AutomationPeer.Metadata.DEFAULT_INTERFACE_IID,
+                ).use(AutomationPeer.Metadata::wrap)
+            }
     }
 
     private companion object {

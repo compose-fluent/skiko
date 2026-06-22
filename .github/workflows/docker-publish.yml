@@ -1,13 +1,6 @@
 name: Docker Build and Publish
 
 on:
-  workflow_dispatch: # Allow manual triggering with an option to publish
-    inputs:
-      publish:
-        description: 'Publish to registry (if false, only dry-run build)'
-        required: false
-        type: boolean
-        default: true
   workflow_call: # Allow being called by other workflows
     inputs:
       publish:

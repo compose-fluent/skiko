@@ -13,20 +13,50 @@ val skikoWinuiUseLocalProject = providers.gradleProperty("skiko.winui.useLocalPr
     .map(String::toBoolean)
     .orElse(false)
 
-val skikoWinuiMavenNotations = listOf(
+val skikoWinuiCommonMavenNotations = listOf(
     "io.github.compose-fluent:skiko-winui:${skikoWinuiVersion.get()}",
+    "${kotlinWinRtGroup.get()}:winrt-runtime:${kotlinWinRtVersion.get()}",
+)
+val skikoWinuiJvmMavenNotations = listOf(
     "io.github.compose-fluent:skiko-winui-windows:${skikoWinuiVersion.get()}",
     "${kotlinWinRtGroup.get()}:winrt-runtime-jvm:${kotlinWinRtVersion.get()}",
 )
-val skikoWinuiDependencyNotations: List<Any> = when (val mode = skikoWinuiDependencyMode.get()) {
+val skikoWinuiMingwMavenNotations = listOf(
+    "io.github.compose-fluent:skiko-winui-mingw:${skikoWinuiVersion.get()}",
+)
+
+val skikoWinuiCommonDependencyNotations: List<Any> = when (val mode = skikoWinuiDependencyMode.get()) {
     "local", "maven" -> if (skikoWinuiUseLocalProject.get()) {
         listOf(
             project(":skiko-winui"),
-            "io.github.compose-fluent:skiko-winui-windows:${skikoWinuiVersion.get()}",
+            "${kotlinWinRtGroup.get()}:winrt-runtime:${kotlinWinRtVersion.get()}",
+        )
+    } else {
+        skikoWinuiCommonMavenNotations
+    }
+    else -> throw GradleException(
+        "Unsupported skiko.winui.dependencyMode='$mode'. Use 'local' or 'maven'."
+    )
+}
+
+val skikoWinuiJvmDependencyNotations: List<Any> = when (val mode = skikoWinuiDependencyMode.get()) {
+    "local", "maven" -> if (skikoWinuiUseLocalProject.get()) {
+        listOf(
             "${kotlinWinRtGroup.get()}:winrt-runtime-jvm:${kotlinWinRtVersion.get()}",
         )
     } else {
-        skikoWinuiMavenNotations
+        skikoWinuiJvmMavenNotations
+    }
+    else -> throw GradleException(
+        "Unsupported skiko.winui.dependencyMode='$mode'. Use 'local' or 'maven'."
+    )
+}
+
+val skikoWinuiMingwDependencyNotations: List<Any> = when (val mode = skikoWinuiDependencyMode.get()) {
+    "local", "maven" -> if (skikoWinuiUseLocalProject.get()) {
+        emptyList()
+    } else {
+        skikoWinuiMingwMavenNotations
     }
     else -> throw GradleException(
         "Unsupported skiko.winui.dependencyMode='$mode'. Use 'local' or 'maven'."
@@ -34,4 +64,6 @@ val skikoWinuiDependencyNotations: List<Any> = when (val mode = skikoWinuiDepend
 }
 
 extra["skikoWinuiDependencyMode"] = skikoWinuiDependencyMode
-extra["skikoWinuiDependencyNotations"] = skikoWinuiDependencyNotations
+extra["skikoWinuiCommonDependencyNotations"] = skikoWinuiCommonDependencyNotations
+extra["skikoWinuiJvmDependencyNotations"] = skikoWinuiJvmDependencyNotations
+extra["skikoWinuiMingwDependencyNotations"] = skikoWinuiMingwDependencyNotations

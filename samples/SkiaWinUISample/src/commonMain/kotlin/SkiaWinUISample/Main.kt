@@ -23,6 +23,7 @@ import org.jetbrains.skiko.winui.WinUIInputHandler
 import org.jetbrains.skiko.winui.WinUIKeyEvent
 import org.jetbrains.skiko.winui.WinUIPointerEvent
 import org.jetbrains.skiko.winui.WinUIPointerEventType
+import org.jetbrains.skiko.winui.WinUIDispatcherTimer
 import org.jetbrains.skiko.winui.WinUISkiaLayer
 import org.jetbrains.skiko.winui.WinUISkiaLayerRenderDelegate
 import org.jetbrains.skiko.winui.WinUITextInputEvent
@@ -30,8 +31,15 @@ import windows.foundation.TypedEventHandler
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.system.exitProcess
+import kotlin.time.Duration.Companion.milliseconds
 
 fun main() {
+    main(emptyArray())
+}
+
+fun main(args: Array<String>) {
+    sampleOptions = SampleOptions.from(args)
     Application.start {
         SkiaWinUISampleApp()
     }
@@ -42,7 +50,6 @@ class SkiaWinUISampleApp : Application() {
         activeApplication = this
         val skiaLayer = WinUISkiaLayer()
         val scene = ClocksWinUI(
-            scaleProvider = { skiaLayer.contentScale },
             renderProvider = { skiaLayer.renderApi },
         )
         skiaLayer.renderDelegate = WinUISkiaLayerRenderDelegate(skiaLayer, scene)
@@ -56,8 +63,7 @@ class SkiaWinUISampleApp : Application() {
         skiaLayer.attachTo(winuiWindow)
 
         winuiWindow.closed.add(TypedEventHandler { _, _ ->
-            skiaLayer.close()
-            exit()
+            closeSample(closeWindow = false)
         })
 
         activeWindow = winuiWindow
@@ -65,16 +71,76 @@ class SkiaWinUISampleApp : Application() {
         winuiWindow.activate()
         skiaLayer.needRender(throttledToVsync = false)
         skiaLayer.requestFocus()
-        skiaLayer.startFrameScheduler()
+        if (sampleOptions.autoExit) {
+            startAutoExit()
+        } else {
+            skiaLayer.startFrameScheduler()
+        }
     }
 }
 
+private data class SampleOptions(
+    val autoExit: Boolean,
+) {
+    companion object {
+        fun from(args: Array<String>): SampleOptions = SampleOptions(
+            autoExit = "--auto-exit" in args || isSampleAutoExitRequested(),
+        )
+    }
+}
+
+private var sampleOptions: SampleOptions = SampleOptions(autoExit = false)
 private var activeApplication: Application? = null
 private var activeWindow: Window? = null
 private var activeLayer: WinUISkiaLayer? = null
+private var activeExitTimer: WinUIDispatcherTimer? = null
+private var activeExitTimeoutTimer: WinUIDispatcherTimer? = null
+private var closingSample = false
+
+private fun startAutoExit() {
+    println("skia-winui-sample: auto exit scheduled")
+    activeExitTimer = WinUIDispatcherTimer(
+        interval = 750.milliseconds,
+        repeating = false,
+    ) {
+        println("skia-winui-sample: auto exit")
+        closeSample(closeWindow = true)
+    }.also { timer ->
+        timer.start()
+    }
+    activeExitTimeoutTimer = WinUIDispatcherTimer(
+        interval = 5_000.milliseconds,
+        repeating = false,
+    ) {
+        println("skia-winui-sample: auto exit timeout")
+        exitProcess(2)
+    }.also { timer ->
+        timer.start()
+    }
+}
+
+private fun closeSample(closeWindow: Boolean) {
+    if (closingSample) {
+        return
+    }
+    closingSample = true
+    activeExitTimer?.close()
+    activeExitTimer = null
+    activeExitTimeoutTimer?.close()
+    activeExitTimeoutTimer = null
+    val window = activeWindow
+    val application = activeApplication
+    activeLayer?.close()
+    activeLayer = null
+    activeWindow = null
+    activeApplication = null
+    if (closeWindow) {
+        window?.close()
+    }
+    application?.exit()
+}
 
 private class ClocksWinUI(
-    private val scaleProvider: () -> Float,
     private val renderProvider: () -> GraphicsApi = { GraphicsApi.UNKNOWN },
 ) : SkikoRenderDelegate, WinUIInputHandler {
     private val typeface = FontMgr.default.makeFromFile("fonts/JetBrainsMono-Regular.ttf")
@@ -119,9 +185,8 @@ private class ClocksWinUI(
             event.type == WinUIPointerEventType.PRESSED ||
             event.type == WinUIPointerEventType.ENTERED
         ) {
-            val scale = scaleProvider().coerceAtLeast(1f)
-            xpos = (event.x / scale).toInt()
-            ypos = (event.y / scale).toInt()
+            xpos = event.x.toInt()
+            ypos = event.y.toInt()
         }
         return false
     }
@@ -191,8 +256,7 @@ private class ClocksWinUI(
         canvas.drawString(text, xpos.toFloat(), ypos.toFloat(), font, paint)
 
         canvas.drawString(
-            "Graphic API: ${renderProvider()}, JRE: ${System.getProperty("java.vendor")}, " +
-                System.getProperty("java.runtime.version"),
+            "Graphic API: ${renderProvider()}, ${sampleRuntimeDescription()}",
             5f,
             15f,
             infoFont,
@@ -207,3 +271,7 @@ private class ClocksWinUI(
         canvas.drawLine(left, top + rectH, left + rectW, top, picturePaint)
     }
 }
+
+expect fun sampleRuntimeDescription(): String
+
+expect fun isSampleAutoExitRequested(): Boolean
