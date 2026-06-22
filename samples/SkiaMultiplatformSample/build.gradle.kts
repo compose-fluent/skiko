@@ -406,18 +406,6 @@ if (isWindowsHost) {
     }
 }
 
-if (isWindowsHost) {
-    kotlin.sourceSets.named("commonMain") {
-        kotlin.exclude("io/github/composefluent/winrt/application/**")
-    }
-    kotlin.sourceSets.named("winuiMingwMain") {
-        kotlin.srcDir(layout.buildDirectory.dir("generated/kotlin-winrt-application-entry/src/commonMain/kotlin"))
-    }
-    tasks.matching { it.name == "compileKotlinWinuiMingw" }.configureEach {
-        dependsOn("generateWinRtMingwApplicationEntry")
-    }
-}
-
 if (hostOs == "macos") {
     project.tasks.register<Exec>("runIosSim") {
         val device = "iPhone 11"
