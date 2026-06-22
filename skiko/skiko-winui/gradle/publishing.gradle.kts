@@ -40,6 +40,20 @@ tasks.register<Jar>("skikoWinuiJavadocJar") {
     archiveClassifier.set("javadoc")
 }
 
+tasks.register<Jar>("skikoWinuiJvmJavadocJar") {
+    group = "build"
+    description = "Builds an empty skiko-winui-jvm javadoc jar for Maven Central publication."
+    archiveBaseName.set("skiko-winui-jvm")
+    archiveClassifier.set("javadoc")
+}
+
+tasks.register<Jar>("skikoWinuiMingwJavadocJar") {
+    group = "build"
+    description = "Builds an empty skiko-winui-mingw javadoc jar for Maven Central publication."
+    archiveBaseName.set("skiko-winui-mingw")
+    archiveClassifier.set("javadoc")
+}
+
 tasks.register<Jar>("skikoWinuiWindowsRuntimeSourcesJar") {
     group = "build"
     description = "Builds the skiko-winui Windows runtime sources jar for Maven publication."
@@ -87,10 +101,11 @@ extensions.configure<PublishingExtension>("publishing") {
         fun MavenPublication.configureSkikoWinuiPom(
             displayName: String,
             displayDescription: String,
+            javadocJarTaskName: String,
         ) {
             groupId = skikoWinuiGroup.get()
             version = skikoVersion.get()
-            artifact(tasks.named("skikoWinuiJavadocJar"))
+            artifact(tasks.named(javadocJarTaskName))
             pom {
                 name.set(displayName)
                 description.set(displayDescription)
@@ -120,6 +135,7 @@ extensions.configure<PublishingExtension>("publishing") {
             configureSkikoWinuiPom(
                 displayName = "Skiko WinUI",
                 displayDescription = "AWT-free Skiko WinUI backend",
+                javadocJarTaskName = "skikoWinuiJavadocJar",
             )
             artifactId = "skiko-winui"
         }
@@ -127,6 +143,7 @@ extensions.configure<PublishingExtension>("publishing") {
             configureSkikoWinuiPom(
                 displayName = "Skiko WinUI JVM",
                 displayDescription = "AWT-free Skiko WinUI JVM backend",
+                javadocJarTaskName = "skikoWinuiJvmJavadocJar",
             )
             artifactId = "skiko-winui-jvm"
             pom.withXml {
@@ -210,6 +227,7 @@ extensions.configure<PublishingExtension>("publishing") {
                 configureSkikoWinuiPom(
                     displayName = "Skiko WinUI MinGW",
                     displayDescription = "AWT-free Skiko WinUI Kotlin/Native mingwX64 backend",
+                    javadocJarTaskName = "skikoWinuiMingwJavadocJar",
                 )
                 artifactId = "skiko-winui-mingw"
                 pom.withXml {
