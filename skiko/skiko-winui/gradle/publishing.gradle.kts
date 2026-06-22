@@ -19,10 +19,6 @@ val skikoVersion = providers.gradleProperty("skiko.version")
             .map { isRelease -> if (isRelease.toBoolean()) skikoUpstreamDeployVersion else "$skikoUpstreamDeployVersion-SNAPSHOT" }
             .orElse("$skikoUpstreamDeployVersion-SNAPSHOT")
     )
-val kotlinWinRtVersion = providers.gradleProperty("kotlinWinRt.version")
-    .orElse("0.1.0-SNAPSHOT")
-val kotlinWinRtGroup = providers.gradleProperty("kotlinWinRt.group")
-    .orElse("io.github.compose-fluent")
 val skikoWinuiGroup = providers.gradleProperty("skiko.winui.group")
     .orElse("io.github.compose-fluent")
 val mavenCentralSnapshotUrl = providers.gradleProperty("skiko.winui.mavenCentralSnapshotUrl")
@@ -36,16 +32,6 @@ val hasSigningPassword = providers.gradleProperty("signingInMemoryKeyPassword")
 val winuiMingwEnabled = providers.gradleProperty("skiko.winui.mingw.enabled")
     .map(String::toBoolean)
     .orElse(true)
-
-tasks.register<Jar>("skikoWinuiSourcesJar") {
-    group = "build"
-    description = "Builds the skiko-winui sources jar for Maven publication."
-    archiveBaseName.set("skiko-winui")
-    archiveClassifier.set("sources")
-    from("src/commonMain/kotlin")
-    from("src/winuiMain/kotlin")
-    from("src/winuiJvmMain/kotlin")
-}
 
 tasks.register<Jar>("skikoWinuiJavadocJar") {
     group = "build"
@@ -98,16 +84,16 @@ extensions.configure<PublishingExtension>("publishing") {
         }
     }
     publications {
-        create("skikoWinuiJvm", MavenPublication::class.java) {
+        fun MavenPublication.configureSkikoWinuiPom(
+            displayName: String,
+            displayDescription: String,
+        ) {
             groupId = skikoWinuiGroup.get()
-            artifactId = "skiko-winui"
             version = skikoVersion.get()
-            artifact(tasks.named("winuiJvmJar"))
-            artifact(tasks.named("skikoWinuiSourcesJar"))
             artifact(tasks.named("skikoWinuiJavadocJar"))
             pom {
-                name.set("Skiko WinUI JVM")
-                description.set("AWT-free Skiko WinUI JVM backend")
+                name.set(displayName)
+                description.set(displayDescription)
                 url.set("https://github.com/compose-fluent/skiko")
                 licenses {
                     license {
@@ -128,14 +114,27 @@ extensions.configure<PublishingExtension>("publishing") {
                     developerConnection.set("scm:git:ssh://git@github.com/compose-fluent/skiko.git")
                 }
             }
+        }
+
+        named("kotlinMultiplatform", MavenPublication::class.java) {
+            configureSkikoWinuiPom(
+                displayName = "Skiko WinUI",
+                displayDescription = "AWT-free Skiko WinUI backend",
+            )
+            artifactId = "skiko-winui"
+        }
+        named("winuiJvm", MavenPublication::class.java) {
+            configureSkikoWinuiPom(
+                displayName = "Skiko WinUI JVM",
+                displayDescription = "AWT-free Skiko WinUI JVM backend",
+            )
+            artifactId = "skiko-winui-jvm"
             pom.withXml {
-                val dependencies = asNode().appendNode("dependencies")
-                dependencies.appendNode("dependency").apply {
-                    appendNode("groupId", kotlinWinRtGroup.get())
-                    appendNode("artifactId", "winrt-runtime-jvm")
-                    appendNode("version", kotlinWinRtVersion.get())
-                    appendNode("scope", "compile")
-                }
+                val root = asNode()
+                val dependencies = (root.get("dependencies") as groovy.util.NodeList)
+                    .filterIsInstance<groovy.util.Node>()
+                    .firstOrNull()
+                    ?: root.appendNode("dependencies")
                 dependencies.appendNode("dependency").apply {
                     appendNode("groupId", skikoWinuiGroup.get())
                     appendNode("artifactId", "skiko-winui-windows")
@@ -208,9 +207,11 @@ extensions.configure<PublishingExtension>("publishing") {
         }
         if (winuiMingwEnabled.get()) {
             named("winuiMingw", MavenPublication::class.java) {
-                groupId = skikoWinuiGroup.get()
+                configureSkikoWinuiPom(
+                    displayName = "Skiko WinUI MinGW",
+                    displayDescription = "AWT-free Skiko WinUI Kotlin/Native mingwX64 backend",
+                )
                 artifactId = "skiko-winui-mingw"
-                version = skikoVersion.get()
                 pom.withXml {
                     val root = asNode()
                     val dependencies = (root.get("dependencies") as groovy.util.NodeList)
@@ -244,7 +245,8 @@ tasks.register("publishSkikoWinuiToMavenLocal") {
     group = "publishing"
     description = "Publishes the current skiko-winui JVM, mingw, and Windows runtime artifacts to Maven Local."
     val publicationTasks = mutableListOf(
-        "publishSkikoWinuiJvmPublicationToMavenLocal",
+        "publishKotlinMultiplatformPublicationToMavenLocal",
+        "publishWinuiJvmPublicationToMavenLocal",
         "publishSkikoWinuiWindowsRuntimePublicationToMavenLocal",
     )
     if (winuiMingwEnabled.get()) {
@@ -258,7 +260,8 @@ tasks.register("publishSkikoWinuiToBuildRepo") {
     group = "publishing"
     description = "Publishes the current skiko-winui JVM, mingw, and Windows runtime artifacts to the local BuildRepo."
     val publicationTasks = mutableListOf(
-        "publishSkikoWinuiJvmPublicationToBuildRepoRepository",
+        "publishKotlinMultiplatformPublicationToBuildRepoRepository",
+        "publishWinuiJvmPublicationToBuildRepoRepository",
         "publishSkikoWinuiWindowsRuntimePublicationToBuildRepoRepository",
     )
     if (winuiMingwEnabled.get()) {
@@ -272,7 +275,8 @@ tasks.register("publishSkikoWinuiToMavenCentral") {
     group = "publishing"
     description = "Publishes the current skiko-winui JVM, mingw, and Windows runtime artifacts to Maven Central."
     val publicationTasks = mutableListOf(
-        "publishSkikoWinuiJvmPublicationToMavenCentralRepository",
+        "publishKotlinMultiplatformPublicationToMavenCentralRepository",
+        "publishWinuiJvmPublicationToMavenCentralRepository",
         "publishSkikoWinuiWindowsRuntimePublicationToMavenCentralRepository",
     )
     if (winuiMingwEnabled.get()) {
