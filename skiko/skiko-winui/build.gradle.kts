@@ -1,5 +1,6 @@
 @file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
 
+import org.gradle.api.artifacts.FileCollectionDependency
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import java.security.MessageDigest
@@ -219,6 +220,22 @@ val winuiProjectionTypes = listOf(
     "Windows.UI.Xaml.Interop.Type",
 )
 
+// The WinRT plugin auto-adds these dependencies; normalize its JVM classpath fallback for KMP metadata consumers.
+configurations.named("commonMainImplementation") {
+    withDependencies {
+        val automaticWinRtModules = listOf("winrt-runtime", "winrt-authoring")
+        automaticWinRtModules.forEach { module ->
+            removeAll { dependency ->
+                dependency is FileCollectionDependency &&
+                    dependency.files.files.any { file -> file.name.startsWith("$module-jvm-") }
+            }
+            if (none { dependency -> dependency.group == kotlinWinRtGroup.get() && dependency.name == module }) {
+                add(project.dependencies.create("${kotlinWinRtGroup.get()}:$module:${kotlinWinRtVersion.get()}"))
+            }
+        }
+    }
+}
+
 repositories {
     maven("https://central.sonatype.com/repository/maven-snapshots/") {
         mavenContent {
@@ -303,8 +320,6 @@ kotlin {
                         exclude(group = "org.jetbrains.skiko", module = "skiko-awt")
                     }
                 }
-                implementation("${kotlinWinRtGroup.get()}:winrt-runtime:${kotlinWinRtVersion.get()}")
-                implementation("${kotlinWinRtGroup.get()}:winrt-authoring:${kotlinWinRtVersion.get()}")
             }
         }
         named("winuiJvmMain") {
