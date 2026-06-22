@@ -249,12 +249,17 @@ kotlin {
             }
         }
 
+        val winuiMain by creating {
+            dependsOn(commonMain)
+            dependencies {
+                skikoWinuiCommonDependencyNotations.forEach(::implementation)
+            }
+        }
+
         if (!skikoWinuiOnlyTargets.get()) {
             val winuiJvmMain by creating {
-                dependsOn(commonMain)
-                kotlin.srcDir("src/winuiMain/kotlin")
+                dependsOn(winuiMain)
                 dependencies {
-                    skikoWinuiCommonDependencyNotations.forEach(::implementation)
                     skikoWinuiJvmDependencyNotations.forEach(::implementation)
                 }
             }
@@ -262,10 +267,8 @@ kotlin {
 
         if (isWindowsHost) {
             val winuiMingwMain by getting {
-                dependsOn(commonMain)
-                kotlin.srcDir("src/winuiMain/kotlin")
+                dependsOn(winuiMain)
                 dependencies {
-                    skikoWinuiCommonDependencyNotations.forEach(::implementation)
                     skikoWinuiMingwProjectDependency?.let(::implementation)
                     skikoWinuiMingwDependencyNotations.forEach(::implementation)
                 }
@@ -403,6 +406,18 @@ if (isWindowsHost) {
     }
 }
 
+if (isWindowsHost) {
+    kotlin.sourceSets.named("commonMain") {
+        kotlin.exclude("io/github/composefluent/winrt/application/**")
+    }
+    kotlin.sourceSets.named("winuiMingwMain") {
+        kotlin.srcDir(layout.buildDirectory.dir("generated/kotlin-winrt-application-entry/src/commonMain/kotlin"))
+    }
+    tasks.matching { it.name == "compileKotlinWinuiMingw" }.configureEach {
+        dependsOn("generateWinRtMingwApplicationEntry")
+    }
+}
+
 if (hostOs == "macos") {
     project.tasks.register<Exec>("runIosSim") {
         val device = "iPhone 11"
@@ -486,7 +501,7 @@ if (!skikoWinuiOnlyTargets.get()) {
         dispatcherRepro?.let {
             systemProperty("skiko.winui.sample.dispatcherRepro", it)
         }
-        mainClass.set("org.jetbrains.skiko.sample.App_winuiJvmKt")
+        mainClass.set("org.jetbrains.skiko.sample.winuiapp.MainKt")
         classpath(kotlinTask.get().outputs)
         classpath(kotlin.jvm("awt").compilations["winuiJvm"].runtimeDependencyFiles)
         doFirst {
