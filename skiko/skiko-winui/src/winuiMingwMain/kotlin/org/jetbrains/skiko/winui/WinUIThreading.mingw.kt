@@ -3,6 +3,7 @@ package org.jetbrains.skiko.winui
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import platform.windows.GetCurrentThreadId
+import platform.windows.SwitchToThread
 
 @OptIn(ExperimentalAtomicApi::class)
 internal actual class WinUILock {
@@ -22,7 +23,7 @@ internal actual inline fun <T> winuiSynchronized(lock: WinUILock, block: () -> T
         }
     }
     while (!lock.ownerThreadId.compareAndSet(0, currentThreadId)) {
-        // Spin only around short internal state updates.
+        SwitchToThread()
     }
     lock.recursionDepth.store(1)
     try {
