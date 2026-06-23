@@ -103,7 +103,7 @@ jobs:
         shell: bash
         run: |
           for attempt in 1 2 3; do
-            gradle -p . --no-daemon --stacktrace --no-configuration-cache --max-workers=1 \
+            gradle -p . --no-daemon --stacktrace --no-configuration-cache --refresh-dependencies --max-workers=1 \
               -Dorg.gradle.parallel=false \
               -Pskiko.winui.enabled=true \
               -Pskiko.winui.jvmTarget=25 \
@@ -129,7 +129,7 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.MAVEN_GPG_KEY_PASSWORD }}
         run: |
           for attempt in 1 2 3; do
-            gradle -p . --no-daemon --stacktrace --no-configuration-cache --max-workers=1 \
+            gradle -p . --no-daemon --stacktrace --no-configuration-cache --refresh-dependencies --max-workers=1 \
               -Dorg.gradle.parallel=false \
               -Pskiko.winui.enabled=true \
               -Pskiko.winui.jvmTarget=25 \
