@@ -6,10 +6,10 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import java.security.MessageDigest
 
 buildscript {
-    val kotlinWinRtVersion = providers.gradleProperty("kotlinWinRt.version")
+    val kotlinWinRTVersion = providers.gradleProperty("kotlinWinRT.version")
         .orElse("0.1.0-SNAPSHOT")
         .get()
-    val kotlinWinRtGroup = providers.gradleProperty("kotlinWinRt.group")
+    val kotlinWinRTGroup = providers.gradleProperty("kotlinWinRT.group")
         .orElse("io.github.compose-fluent")
         .get()
 
@@ -24,7 +24,7 @@ buildscript {
         google()
     }
     dependencies {
-        classpath("$kotlinWinRtGroup:winrt-gradle-plugin:$kotlinWinRtVersion")
+        classpath("$kotlinWinRTGroup:winrt-gradle-plugin:$kotlinWinRTVersion")
     }
 }
 
@@ -35,9 +35,9 @@ plugins {
 
 apply(plugin = "io.github.composefluent.winrt")
 
-val kotlinWinRtVersion = providers.gradleProperty("kotlinWinRt.version")
+val kotlinWinRTVersion = providers.gradleProperty("kotlinWinRT.version")
     .orElse("0.1.0-SNAPSHOT")
-val kotlinWinRtGroup = providers.gradleProperty("kotlinWinRt.group")
+val kotlinWinRTGroup = providers.gradleProperty("kotlinWinRT.group")
     .orElse("io.github.compose-fluent")
 val winuiWindowsAppSdkVersion = providers.gradleProperty("skiko.winui.windowsAppSdkVersion")
     .orElse("2.1.3")
@@ -166,7 +166,7 @@ val skikoWinuiEmbeddedSkikoApi = configurations.create("skikoWinuiEmbeddedSkikoA
         )
     }
 }
-val kotlinWinRtAuthoringScannerRuntime = configurations.detachedConfiguration(
+val kotlinWinRTAuthoringScannerRuntime = configurations.detachedConfiguration(
     dependencies.create("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.4.0")
 )
 val winuiProjectionTypes = listOf(
@@ -223,14 +223,14 @@ val winuiProjectionTypes = listOf(
 // The WinRT plugin auto-adds these dependencies; normalize its JVM classpath fallback for KMP metadata consumers.
 configurations.named("commonMainImplementation") {
     withDependencies {
-        val automaticWinRtModules = listOf("winrt-runtime", "winrt-authoring")
-        automaticWinRtModules.forEach { module ->
+        val automaticWinRTModules = listOf("winrt-runtime", "winrt-authoring")
+        automaticWinRTModules.forEach { module ->
             removeAll { dependency ->
                 dependency is FileCollectionDependency &&
                     dependency.files.files.any { file -> file.name.startsWith("$module-jvm-") }
             }
-            if (none { dependency -> dependency.group == kotlinWinRtGroup.get() && dependency.name == module }) {
-                add(project.dependencies.create("${kotlinWinRtGroup.get()}:$module:${kotlinWinRtVersion.get()}"))
+            if (none { dependency -> dependency.group == kotlinWinRTGroup.get() && dependency.name == module }) {
+                add(project.dependencies.create("${kotlinWinRTGroup.get()}:$module:${kotlinWinRTVersion.get()}"))
             }
         }
     }
@@ -375,7 +375,7 @@ tasks.named<Jar>("winuiJvmJar") {
     })
 }
 
-extensions.configure<io.github.composefluent.winrt.gradle.WinRtExtension>("winRt") {
+extensions.configure<io.github.composefluent.winrt.gradle.WinRTExtension>("winRT") {
     windowsSdk(winuiWindowsSdkVersion.get(), includeExtensions = false, generateProjection = true)
     nugetPackage("Microsoft.WindowsAppSDK", winuiWindowsAppSdkVersion.get()) {
         generateProjection = true
@@ -491,9 +491,9 @@ tasks.register<Jar>("skikoWinuiMingwRuntimeJar") {
     from(winuiMingwRuntimeResourceDir)
 }
 
-tasks.named<io.github.composefluent.winrt.gradle.GenerateWinRtProjectionsTask>("generateWinRtProjections") {
+tasks.named<io.github.composefluent.winrt.gradle.GenerateWinRTProjectionsTask>("generateWinRTProjections") {
     onlyIf { !skipProjectionGeneration.get() }
-    authoringScannerClasspath.from(kotlinWinRtAuthoringScannerRuntime)
+    authoringScannerClasspath.from(kotlinWinRTAuthoringScannerRuntime)
     sourceRoots.setFrom(
         project.file("src/winuiMain/kotlin"),
     )

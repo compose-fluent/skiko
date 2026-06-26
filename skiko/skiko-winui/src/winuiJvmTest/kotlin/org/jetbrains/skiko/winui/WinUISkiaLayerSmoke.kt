@@ -4,9 +4,9 @@ import io.github.composefluent.winrt.runtime.ComVtableInvoker
 import io.github.composefluent.winrt.runtime.Guid
 import io.github.composefluent.winrt.runtime.HResult
 import io.github.composefluent.winrt.runtime.IUnknownReference
-import io.github.composefluent.winrt.runtime.IWinRTObject
 import io.github.composefluent.winrt.runtime.RuntimeScope
-import io.github.composefluent.winrt.runtime.WinRtWindowsAppSdkBootstrap
+import io.github.composefluent.winrt.runtime.WinRTWindowsAppSdkBootstrap
+import io.github.composefluent.winrt.runtime.asWinRT
 import microsoft.ui.dispatching.DispatcherQueue
 import microsoft.ui.dispatching.DispatcherQueueTimer
 import microsoft.ui.xaml.Application
@@ -65,8 +65,8 @@ object WinUISkiaLayerSmoke {
 
     private fun start(options: SmokeOptions = SmokeOptions()) {
         println("skiko-winui-smoke: bootstrap begin")
-        WinRtWindowsAppSdkBootstrap.initialize().use { bootstrap ->
-            println("skiko-winui-smoke: bootstrap=${if (bootstrap != null) "initialized" else "not-needed"}")
+        WinRTWindowsAppSdkBootstrap.initialize().use {
+            println("skiko-winui-smoke: bootstrap=initialized")
             println("skiko-winui-smoke: runtime scope begin")
             RuntimeScope.initializeSingleThreaded().use {
                 println("skiko-winui-smoke: application start")
@@ -791,18 +791,8 @@ private class SmokeSession(
         }
     }
 
-    private fun Any?.toAutomationPeerOrNull(): AutomationPeer? {
-        val winRtObject = this as? IWinRTObject ?: return null
-        return winRtObject.nativeObject
-            .queryInterface(AutomationPeer.Metadata.DEFAULT_INTERFACE_IID)
-            .getOrNull()
-            ?.use { peerReference ->
-                IUnknownReference(
-                    peerReference.getRefPointer(),
-                    AutomationPeer.Metadata.DEFAULT_INTERFACE_IID,
-                ).use(AutomationPeer.Metadata::wrap)
-            }
-    }
+    private fun Any?.toAutomationPeerOrNull(): AutomationPeer? =
+        this?.let { value -> runCatching { value.asWinRT<AutomationPeer>() }.getOrNull() }
 
     private companion object {
         private const val INITIAL_WIDTH = 320.0

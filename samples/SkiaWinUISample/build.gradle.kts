@@ -3,10 +3,10 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 buildscript {
-    val kotlinWinRtVersion = providers.gradleProperty("kotlinWinRt.version")
+    val kotlinWinRTVersion = providers.gradleProperty("kotlinWinRT.version")
         .orElse("0.1.0-SNAPSHOT")
         .get()
-    val kotlinWinRtGroup = providers.gradleProperty("kotlinWinRt.group")
+    val kotlinWinRTGroup = providers.gradleProperty("kotlinWinRT.group")
         .orElse("io.github.compose-fluent")
         .get()
 
@@ -21,7 +21,7 @@ buildscript {
         google()
     }
     dependencies {
-        classpath("$kotlinWinRtGroup:winrt-gradle-plugin:$kotlinWinRtVersion")
+        classpath("$kotlinWinRTGroup:winrt-gradle-plugin:$kotlinWinRTVersion")
     }
 }
 
@@ -77,7 +77,7 @@ val skikoWinuiMingwRuntimeFiles = configurations.create("skikoWinuiMingwRuntimeF
 val skikoWinuiMingwRuntimePayloadDir = layout.buildDirectory.dir("skiko-winui-mingw-runtime")
 val skikoWinuiWindowsRuntimePayloadDir = layout.buildDirectory.dir("skiko-winui-windows-runtime")
 val skikoWinuiMingwRuntimeAssetPath = "winui-mingw/windows-x64"
-val winRtRuntimeAssetsDir = layout.buildDirectory.dir("kotlin-winrt/runtime-assets")
+val winRTRuntimeAssetsDir = layout.buildDirectory.dir("kotlin-winrt/runtime-assets")
 val winuiMingwDebugExecutableDir = layout.buildDirectory.dir("bin/winuiMingw/debugExecutable")
 val sampleWindowsAppSdkVersion = providers.gradleProperty("skiko.winui.windowsAppSdkVersion")
     .orElse("2.1.3")
@@ -133,7 +133,7 @@ kotlin {
     }
 }
 
-extensions.configure<io.github.composefluent.winrt.gradle.WinRtExtension>("winRt") {
+extensions.configure<io.github.composefluent.winrt.gradle.WinRTExtension>("winRT") {
     windowsSdk(sampleWindowsSdkVersion.get(), includeExtensions = false, generateProjection = true)
     nugetPackage("Microsoft.WindowsAppSDK", sampleWindowsAppSdkVersion.get()) {
         generateProjection = true
@@ -189,7 +189,7 @@ extensions.configure<io.github.composefluent.winrt.gradle.WinRtExtension>("winRt
     ).forEach(::type)
 }
 
-tasks.matching { it.name == "runWinRtApplicationHost" }.configureEach {
+tasks.matching { it.name == "runWinRTApplicationHost" }.configureEach {
     group = "application"
     description = "Runs the JVM WinUI Skiko sample through the generated native app host."
 }
@@ -228,32 +228,32 @@ tasks.register<Copy>("unpackSkikoWinuiWindowsRuntime") {
     into(skikoWinuiWindowsRuntimePayloadDir)
 }
 
-tasks.matching { it.name == "stageWinRtRuntimeAssets" }.configureEach {
+tasks.matching { it.name == "stageWinRTRuntimeAssets" }.configureEach {
     dependsOn("unpackSkikoWinuiMingwRuntime")
 }
 
 tasks.register("stageSkikoWinuiMingwRuntimeDlls") {
     group = "build"
     description = "Stages skiko-winui mingw runtime DLLs for local executable launch and WinRT app payload."
-    dependsOn("unpackSkikoWinuiMingwRuntime", "unpackSkikoWinuiWindowsRuntime", "stageWinRtRuntimeAssets")
+    dependsOn("unpackSkikoWinuiMingwRuntime", "unpackSkikoWinuiWindowsRuntime", "stageWinRTRuntimeAssets")
     val runtimeDlls = listOf("skiko_winui.dll", "skiko_winui_skia.dll")
     val sourceFiles = runtimeDlls.map { name ->
         skikoWinuiMingwRuntimePayloadDir.map { it.file("$skikoWinuiMingwRuntimeAssetPath/$name") }
     } + listOf(skikoWinuiWindowsRuntimePayloadDir.map { it.file("icudtl.dat") })
     val outputFiles = runtimeDlls.flatMap { name ->
         listOf(
-            winRtRuntimeAssetsDir.map { it.file(name) },
+            winRTRuntimeAssetsDir.map { it.file(name) },
             winuiMingwDebugExecutableDir.map { it.file(name) },
         )
     } + listOf(
-        winRtRuntimeAssetsDir.map { it.file("icudtl.dat") },
+        winRTRuntimeAssetsDir.map { it.file("icudtl.dat") },
         winuiMingwDebugExecutableDir.map { it.file("icudtl.dat") },
     )
     inputs.files(sourceFiles)
     outputs.files(outputFiles)
     doLast {
         val destinations = listOf(
-            winRtRuntimeAssetsDir.get().asFile,
+            winRTRuntimeAssetsDir.get().asFile,
             winuiMingwDebugExecutableDir.get().asFile,
         )
         destinations.forEach(File::mkdirs)
@@ -297,7 +297,7 @@ tasks.register("verifySkikoWinuiMingwSampleRuntime") {
     dependsOn("linkDebugExecutableWinuiMingw", "stageSkikoWinuiMingwRuntimeDlls")
     doLast {
         val executableDir = winuiMingwDebugExecutableDir.get().asFile
-        val runtimeAssets = winRtRuntimeAssetsDir.get().asFile
+        val runtimeAssets = winRTRuntimeAssetsDir.get().asFile
         executableDir
             .listFiles { file -> file.name.endsWith(".exe") || file.name.endsWith(".kexe") }
             ?.singleOrNull()
@@ -331,7 +331,7 @@ fun TaskContainer.registerWinuiMingwSampleTask(
         val executableDir = winuiMingwDebugExecutableDir.get().asFile
         val out = fileTree(executableDir) { include("*.exe", "*.kexe") }
         val executableFile = out.single { it.name.endsWith(".exe") || it.name.endsWith(".kexe") }
-        val runtimeAssets = winRtRuntimeAssetsDir.get().asFile
+        val runtimeAssets = winRTRuntimeAssetsDir.get().asFile
         val path = listOf(
             runtimeAssets.absolutePath,
             executableFile.parentFile.absolutePath,

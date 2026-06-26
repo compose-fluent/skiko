@@ -1,10 +1,10 @@
 package org.jetbrains.skiko.sample.winuiapp
 
 import io.github.composefluent.winrt.runtime.RuntimeScope
-import io.github.composefluent.winrt.runtime.WinRtWindowsAppSdkBootstrap
+import io.github.composefluent.winrt.runtime.WinRTWindowsAppSdkBootstrap
 
 actual fun runWinUIRuntime(block: () -> Unit) {
-    WinRtWindowsAppSdkBootstrap.initialize().use {
+    WinRTWindowsAppSdkBootstrap.initialize().use {
         println("skia-mpp-winui: runtime scope begin")
         RuntimeScope.initializeSingleThreaded().use {
             block()

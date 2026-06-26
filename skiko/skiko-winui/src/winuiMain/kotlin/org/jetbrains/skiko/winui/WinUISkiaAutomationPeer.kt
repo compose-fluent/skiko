@@ -29,7 +29,7 @@ internal class WinUISkiaAutomationPeer(
         node?.automationId.orEmpty()
 
     override fun getBoundingRectangleCore(): Rect =
-        node?.bounds?.toWinRtRect() ?: Rect(0f, 0f, 0f, 0f)
+        node?.bounds?.toWinRTRect() ?: Rect(0f, 0f, 0f, 0f)
 
     override fun getChildrenCore(): MutableList<AutomationPeer> =
         node
@@ -140,7 +140,7 @@ internal class WinUISkiaAutomationPeer(
     }
 }
 
-private fun WinUIRect.toWinRtRect(): Rect =
+private fun WinUIRect.toWinRTRect(): Rect =
     Rect(x, y, width, height)
 
 private fun WinUIAccessibilityLiveSetting.toAutomationLiveSetting(): AutomationLiveSetting = when (this) {

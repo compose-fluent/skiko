@@ -1,8 +1,7 @@
 package org.jetbrains.skiko.winui
 
 import io.github.composefluent.winrt.runtime.EventRegistrationToken
-import io.github.composefluent.winrt.runtime.IUnknownReference
-import io.github.composefluent.winrt.runtime.IWinRTObject
+import io.github.composefluent.winrt.runtime.asWinRT
 import microsoft.ui.dispatching.DispatcherQueue
 import microsoft.ui.xaml.FrameworkElement
 import microsoft.ui.xaml.RoutedEventHandler
@@ -521,18 +520,8 @@ class WinUISkiaLayer(
     private fun Double.toRenderableDimension(): Float? =
         takeIf { !it.isNaN() && !it.isInfinite() && it > 0.0 }?.toFloat()
 
-    private fun Any.toWinUIWindowOrNull(): Window? {
-        val winRtObject = this as? IWinRTObject ?: return null
-        return winRtObject.nativeObject
-            .queryInterface(Window.Metadata.DEFAULT_INTERFACE_IID)
-            .getOrNull()
-            ?.use { windowReference ->
-                IUnknownReference(
-                    windowReference.getRefPointer(),
-                    Window.Metadata.DEFAULT_INTERFACE_IID,
-                ).use(Window.Metadata::wrap)
-            }
-    }
+    private fun Any.toWinUIWindowOrNull(): Window? =
+        runCatching { asWinRT<Window>() }.getOrNull()
 
     private fun Throwable.toRenderFailure(
         state: WinUILayerRenderState,

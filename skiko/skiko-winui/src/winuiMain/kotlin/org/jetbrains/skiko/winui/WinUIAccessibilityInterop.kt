@@ -130,9 +130,9 @@ internal class WinUIAccessibilityInterop(
         AutomationProperties.setHelpText(element, info.helpText)
         AutomationProperties.setFullDescription(element, info.fullDescription)
         AutomationProperties.setLocalizedControlType(element, info.localizedControlType)
-        AutomationProperties.setAccessibilityView(element, info.view.toWinRtAccessibilityView())
-        AutomationProperties.setLiveSetting(element, info.liveSetting.toWinRtLiveSetting())
-        AutomationProperties.setAutomationControlType(element, info.role.toWinRtControlType())
+        AutomationProperties.setAccessibilityView(element, info.view.toWinRTAccessibilityView())
+        AutomationProperties.setLiveSetting(element, info.liveSetting.toWinRTLiveSetting())
+        AutomationProperties.setAutomationControlType(element, info.role.toWinRTControlType())
     }
 }
 
@@ -148,19 +148,19 @@ internal data class WinUIAccessibilityChangeRecord(
 
 private const val MAX_CHANGE_HISTORY = 256
 
-private fun WinUIAccessibilityView.toWinRtAccessibilityView(): AccessibilityView = when (this) {
+private fun WinUIAccessibilityView.toWinRTAccessibilityView(): AccessibilityView = when (this) {
     WinUIAccessibilityView.RAW -> AccessibilityView.Raw
     WinUIAccessibilityView.CONTROL -> AccessibilityView.Control
     WinUIAccessibilityView.CONTENT -> AccessibilityView.Content
 }
 
-private fun WinUIAccessibilityLiveSetting.toWinRtLiveSetting(): AutomationLiveSetting = when (this) {
+private fun WinUIAccessibilityLiveSetting.toWinRTLiveSetting(): AutomationLiveSetting = when (this) {
     WinUIAccessibilityLiveSetting.OFF -> AutomationLiveSetting.Off
     WinUIAccessibilityLiveSetting.POLITE -> AutomationLiveSetting.Polite
     WinUIAccessibilityLiveSetting.ASSERTIVE -> AutomationLiveSetting.Assertive
 }
 
-private fun WinUIAccessibilityRole.toWinRtControlType(): AutomationControlType = when (this) {
+private fun WinUIAccessibilityRole.toWinRTControlType(): AutomationControlType = when (this) {
     WinUIAccessibilityRole.CUSTOM -> AutomationControlType.Custom
     WinUIAccessibilityRole.BUTTON -> AutomationControlType.Button
     WinUIAccessibilityRole.CHECK_BOX -> AutomationControlType.CheckBox
