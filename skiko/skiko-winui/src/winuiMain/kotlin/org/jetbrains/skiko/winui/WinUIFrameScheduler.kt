@@ -1,8 +1,8 @@
 package org.jetbrains.skiko.winui
 
-import io.github.composefluent.winrt.runtime.EventRegistrationToken
 import microsoft.ui.dispatching.DispatcherQueue
 import microsoft.ui.dispatching.DispatcherQueueTimer
+import windows.foundation.EventRegistrationToken
 import windows.foundation.TypedEventHandler
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds

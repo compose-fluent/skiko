@@ -1,6 +1,5 @@
 package org.jetbrains.skiko.winui
 
-import io.github.composefluent.winrt.runtime.EventRegistrationToken
 import io.github.composefluent.winrt.runtime.asWinRT
 import microsoft.ui.dispatching.DispatcherQueue
 import microsoft.ui.xaml.FrameworkElement
@@ -13,6 +12,7 @@ import org.jetbrains.skia.PictureRecorder
 import org.jetbrains.skia.PixelGeometry
 import org.jetbrains.skiko.GraphicsApi
 import org.jetbrains.skiko.SkikoRenderDelegate
+import windows.foundation.EventRegistrationToken
 import kotlin.math.roundToInt
 
 /**

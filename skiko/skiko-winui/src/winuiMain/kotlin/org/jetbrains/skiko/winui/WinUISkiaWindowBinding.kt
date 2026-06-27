@@ -1,9 +1,9 @@
 package org.jetbrains.skiko.winui
 
-import io.github.composefluent.winrt.runtime.EventRegistrationToken
 import microsoft.ui.xaml.FrameworkElement
 import microsoft.ui.xaml.UIElement
 import microsoft.ui.xaml.Window
+import windows.foundation.EventRegistrationToken
 import windows.foundation.TypedEventHandler
 
 class WinUISkiaWindowBinding internal constructor(

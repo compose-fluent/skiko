@@ -1,6 +1,5 @@
 package org.jetbrains.skiko.winui
 
-import io.github.composefluent.winrt.runtime.EventRegistrationToken
 import microsoft.ui.input.PointerDeviceType
 import microsoft.ui.input.PointerPointProperties
 import microsoft.ui.input.PointerUpdateKind
@@ -12,6 +11,7 @@ import microsoft.ui.xaml.input.KeyEventHandler
 import microsoft.ui.xaml.input.KeyRoutedEventArgs
 import microsoft.ui.xaml.input.PointerEventHandler
 import microsoft.ui.xaml.input.PointerRoutedEventArgs
+import windows.foundation.EventRegistrationToken
 import windows.foundation.Rect
 import windows.foundation.TypedEventHandler
 import windows.system.VirtualKey

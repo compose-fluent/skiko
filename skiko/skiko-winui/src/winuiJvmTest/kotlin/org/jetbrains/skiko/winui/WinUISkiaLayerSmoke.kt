@@ -28,6 +28,7 @@ import org.jetbrains.skia.PixelGeometry
 import org.jetbrains.skia.Surface
 import org.jetbrains.skiko.GraphicsApi
 import org.jetbrains.skia.impl.Library
+import windows.foundation.EventRegistrationToken
 import windows.foundation.Point
 import windows.foundation.Rect
 import windows.foundation.Size
@@ -104,7 +105,7 @@ private class SmokeSession(
     private var layer: WinUISkiaLayerSurface? = null
     private var windowBinding: WinUISkiaWindowBinding? = null
     private var focusTimer: DispatcherQueueTimer? = null
-    private var focusTimerTickToken: io.github.composefluent.winrt.runtime.EventRegistrationToken? = null
+    private var focusTimerTickToken: EventRegistrationToken? = null
     private var renderCount = 0
     private var failure: Throwable? = null
 
