@@ -3,7 +3,6 @@ package org.jetbrains.skiko.winui
 import microsoft.ui.dispatching.DispatcherQueue
 import microsoft.ui.dispatching.DispatcherQueueTimer
 import windows.foundation.EventRegistrationToken
-import windows.foundation.TypedEventHandler
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -23,11 +22,11 @@ class WinUIDispatcherTimer(
     fun start() {
         check(!isClosed) { "WinUIDispatcherTimer is closed" }
         if (tickToken == null) {
-            tickToken = timer.tick.add(TypedEventHandler { _, _ ->
+            tickToken = timer.tick.add { _, _ ->
                 if (!isClosed) {
                     onTick()
                 }
-            })
+            }
         }
         timer.interval = interval
         timer.isRepeating = repeating

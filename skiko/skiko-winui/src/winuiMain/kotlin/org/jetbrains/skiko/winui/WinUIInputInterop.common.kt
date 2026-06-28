@@ -13,7 +13,6 @@ import microsoft.ui.xaml.input.PointerEventHandler
 import microsoft.ui.xaml.input.PointerRoutedEventArgs
 import windows.foundation.EventRegistrationToken
 import windows.foundation.Rect
-import windows.foundation.TypedEventHandler
 import windows.system.VirtualKey
 import windows.system.VirtualKeyModifiers
 import windows.ui.text.core.CoreTextCompositionCompletedEventArgs
@@ -119,9 +118,9 @@ internal class WinUIInputInteropCommon(
         })
         eventTokens += WinUIInputEventToken(keyUpToken, panel.keyUp::remove)
 
-        val characterReceivedToken = panel.characterReceived.add(TypedEventHandler { _, args ->
+        val characterReceivedToken = panel.characterReceived.add { _, args ->
             handleTextInputEvent(args)
-        })
+        }
         eventTokens += WinUIInputEventToken(characterReceivedToken, panel.characterReceived::remove)
 
         val gotFocusToken = panel.gotFocus.add(RoutedEventHandler { _, _ ->
@@ -329,45 +328,45 @@ private class WinUITextCompositionInterop(
 
     private fun subscribe(context: CoreTextEditContext) {
         eventTokens += WinUIInputEventToken(
-            context.textRequested.add(TypedEventHandler { _, args ->
+            context.textRequested.add { _, args ->
                 handleTextRequested(args)
-            }),
+            },
             context.textRequested::remove,
         )
         eventTokens += WinUIInputEventToken(
-            context.selectionRequested.add(TypedEventHandler { _, args ->
+            context.selectionRequested.add { _, args ->
                 handleSelectionRequested(args)
-            }),
+            },
             context.selectionRequested::remove,
         )
         eventTokens += WinUIInputEventToken(
-            context.layoutRequested.add(TypedEventHandler { _, args ->
+            context.layoutRequested.add { _, args ->
                 handleLayoutRequested(args)
-            }),
+            },
             context.layoutRequested::remove,
         )
         eventTokens += WinUIInputEventToken(
-            context.textUpdating.add(TypedEventHandler { _, args ->
+            context.textUpdating.add { _, args ->
                 handleTextUpdating(args)
-            }),
+            },
             context.textUpdating::remove,
         )
         eventTokens += WinUIInputEventToken(
-            context.selectionUpdating.add(TypedEventHandler { _, args ->
+            context.selectionUpdating.add { _, args ->
                 handleSelectionUpdating(args)
-            }),
+            },
             context.selectionUpdating::remove,
         )
         eventTokens += WinUIInputEventToken(
-            context.compositionStarted.add(TypedEventHandler { _, args ->
+            context.compositionStarted.add { _, args ->
                 handleCompositionStarted(args)
-            }),
+            },
             context.compositionStarted::remove,
         )
         eventTokens += WinUIInputEventToken(
-            context.compositionCompleted.add(TypedEventHandler { _, args ->
+            context.compositionCompleted.add { _, args ->
                 handleCompositionCompleted(args)
-            }),
+            },
             context.compositionCompleted::remove,
         )
     }

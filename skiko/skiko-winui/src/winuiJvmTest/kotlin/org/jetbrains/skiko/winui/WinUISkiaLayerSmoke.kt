@@ -32,7 +32,6 @@ import windows.foundation.EventRegistrationToken
 import windows.foundation.Point
 import windows.foundation.Rect
 import windows.foundation.Size
-import windows.foundation.TypedEventHandler
 import kotlin.system.exitProcess
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -258,7 +257,7 @@ private class SmokeSession(
         timer.isRepeating = true
         var stage = 0
         var ticks = 0
-        focusTimerTickToken = timer.tick.add(TypedEventHandler { _, _ ->
+        val tickHandler = tickHandler@{ _: DispatcherQueueTimer?, _: Any? ->
             try {
                 ticks += 1
                 check(ticks < 240) {
@@ -285,7 +284,7 @@ private class SmokeSession(
                     }
                     1 -> {
                         if (renderCount < 1) {
-                            return@TypedEventHandler
+                            return@tickHandler
                         }
                         println("skiko-winui-smoke: resize panel")
                         frameworkElement.width = RESIZED_WIDTH
@@ -302,7 +301,7 @@ private class SmokeSession(
                     }
                     2 -> {
                         if (renderCount < 2) {
-                            return@TypedEventHandler
+                            return@tickHandler
                         }
                         println("skiko-winui-smoke: shrink panel")
                         frameworkElement.width = SHRUNK_WIDTH
@@ -319,7 +318,7 @@ private class SmokeSession(
                     }
                     3 -> {
                         if (renderCount < 3) {
-                            return@TypedEventHandler
+                            return@tickHandler
                         }
                         timer.stop()
                         focusTimerTickToken?.let(timer.tick::remove)
@@ -333,7 +332,7 @@ private class SmokeSession(
                         if (options.verifyFocusAfterDispatcher) {
                             println("skiko-winui-smoke: schedule dispatcher focus verification")
                             scheduleDispatcherFocusVerification(skiaLayer)
-                            return@TypedEventHandler
+                            return@tickHandler
                         }
                         autoExit()
                     }
@@ -348,7 +347,8 @@ private class SmokeSession(
                     application.exit()
                 }
             }
-        })
+        }
+        focusTimerTickToken = timer.tick.add(tickHandler)
         timer.start()
     }
 
@@ -380,7 +380,7 @@ private class SmokeSession(
         timer.isRepeating = true
         var tickCount = 0
         var focusRequested = false
-        focusTimerTickToken = timer.tick.add(TypedEventHandler { _, _ ->
+        val tickHandler = tickHandler@{ _: DispatcherQueueTimer?, _: Any? ->
             try {
                 tickCount += 1
                 if (tickCount == 1) {
@@ -396,7 +396,7 @@ private class SmokeSession(
                     check(focusRequested && skiaLayer.focusState == WinUIFocusState.KEYBOARD) {
                         "Expected dispatcher-delayed keyboard focus to succeed, got $focusRequested and ${skiaLayer.focusState}."
                     }
-                    return@TypedEventHandler
+                    return@tickHandler
                 }
 
                 timer.stop()
@@ -428,7 +428,8 @@ private class SmokeSession(
                     application.exit()
                 }
             }
-        })
+        }
+        focusTimerTickToken = timer.tick.add(tickHandler)
         timer.start()
     }
 

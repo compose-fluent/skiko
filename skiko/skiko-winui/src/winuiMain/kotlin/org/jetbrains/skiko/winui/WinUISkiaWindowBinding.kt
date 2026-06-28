@@ -4,7 +4,6 @@ import microsoft.ui.xaml.FrameworkElement
 import microsoft.ui.xaml.UIElement
 import microsoft.ui.xaml.Window
 import windows.foundation.EventRegistrationToken
-import windows.foundation.TypedEventHandler
 
 class WinUISkiaWindowBinding internal constructor(
     val window: Window,
@@ -18,9 +17,9 @@ class WinUISkiaWindowBinding internal constructor(
 
     internal fun bindClosedEvent() {
         if (closeLayerOnWindowClosed && closedToken == null) {
-            closedToken = window.closed.add(TypedEventHandler { _, _ ->
+            closedToken = window.closed.add { _, _ ->
                 close()
-            })
+            }
         }
     }
 
