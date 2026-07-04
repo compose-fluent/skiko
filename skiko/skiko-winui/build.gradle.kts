@@ -341,9 +341,9 @@ kotlin {
             dependsOn(winuiMain)
             dependencies {
                 if (localSkikoJar.isPresent) {
-                    implementation(files(rootProject.file(localSkikoJar.get())))
+                    compileOnly(files(rootProject.file(localSkikoJar.get())))
                 } else {
-                    implementation("org.jetbrains.skiko:skiko-jvm-api:${skikoVersion.get()}")
+                    compileOnly("org.jetbrains.skiko:skiko-jvm-api:${skikoVersion.get()}")
                 }
                 runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2")
             }
