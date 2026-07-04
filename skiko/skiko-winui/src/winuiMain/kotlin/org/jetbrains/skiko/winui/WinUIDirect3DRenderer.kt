@@ -115,7 +115,7 @@ internal class WinUIDirect3DRenderer(
         if (context != null) {
             return
         }
-        context = DirectContext.makeDirect3D(
+        context = winuiMakeDirect3DContext(
             adapterPtr = bridge.getAdapterPtr(device),
             devicePtr = bridge.getDevicePtr(device),
             queuePtr = bridge.getQueuePtr(device),
@@ -134,7 +134,7 @@ internal class WinUIDirect3DRenderer(
         val context = context ?: return
         try {
             for (index in 0 until bufferCount) {
-                val renderTarget = BackendRenderTarget.makeDirect3D(
+                val renderTarget = winuiMakeDirect3DRenderTarget(
                     width = width,
                     height = height,
                     texturePtr = bridge.getBufferResourcePtr(device, index),

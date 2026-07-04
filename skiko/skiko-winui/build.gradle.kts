@@ -236,6 +236,14 @@ configurations.named("commonMainImplementation") {
     }
 }
 
+configurations.matching { it.name == "winuiJvmCompileClasspath" }.configureEach {
+    resolutionStrategy.dependencySubstitution {
+        substitute(module("org.jetbrains.skiko:skiko"))
+            .using(module("org.jetbrains.skiko:skiko-jvm-api:${skikoVersion.get()}"))
+            .because("winui-jvm must compile against the AWT-free Skiko API while common metadata uses Skiko MPP metadata")
+    }
+}
+
 repositories {
     maven("https://central.sonatype.com/repository/maven-snapshots/") {
         mavenContent {
@@ -311,12 +319,26 @@ kotlin {
 
     sourceSets {
         commonMain {
-            kotlin.srcDir("src/winuiMain/kotlin")
+            kotlin.exclude(
+                "io/github/composefluent/winrt/**",
+                "kotlin-winrt-authoring/**",
+                "kotlin-winrt-support/**",
+                "microsoft/**",
+                "org/jetbrains/skiko/winui/WinRT_*",
+                "windows/**",
+                "winrt/**",
+            )
+        }
+        val winuiMain by creating {
+            kotlin.srcDir(layout.buildDirectory.dir("generated/kotlin-winrt/src/commonMain/kotlin"))
+            kotlin.srcDir(layout.buildDirectory.dir("generated/kotlin-winrt-authoring/src/commonMain/kotlin"))
+            dependsOn(commonMain.get())
             dependencies {
+                compileOnly("org.jetbrains.skiko:skiko:${skikoVersion.get()}")
             }
         }
         named("winuiJvmMain") {
-            dependsOn(commonMain.get())
+            dependsOn(winuiMain)
             dependencies {
                 if (localSkikoJar.isPresent) {
                     implementation(files(rootProject.file(localSkikoJar.get())))
@@ -337,7 +359,7 @@ kotlin {
         }
         if (winuiMingwEnabled.get()) {
             named("winuiMingwMain") {
-                dependsOn(commonMain.get())
+                dependsOn(winuiMain)
                 dependencies {
                     if (localSkikoJar.isPresent) {
                         implementation(files(rootProject.file(localSkikoJar.get())))
