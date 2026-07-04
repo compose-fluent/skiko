@@ -7,6 +7,7 @@ internal fun FocusState.toWinUIFocusState(): WinUIFocusState = when (this) {
     FocusState.Pointer -> WinUIFocusState.POINTER
     FocusState.Keyboard -> WinUIFocusState.KEYBOARD
     FocusState.Programmatic -> WinUIFocusState.PROGRAMMATIC
+    else -> WinUIFocusState.UNKNOWN
 }
 
 internal fun WinUIFocusState.toFocusState(): FocusState? = when (this) {

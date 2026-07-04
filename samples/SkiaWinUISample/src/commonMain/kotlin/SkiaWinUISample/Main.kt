@@ -27,7 +27,6 @@ import org.jetbrains.skiko.winui.WinUIDispatcherTimer
 import org.jetbrains.skiko.winui.WinUISkiaLayer
 import org.jetbrains.skiko.winui.WinUISkiaLayerRenderDelegate
 import org.jetbrains.skiko.winui.WinUITextInputEvent
-import windows.foundation.TypedEventHandler
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -62,9 +61,9 @@ class SkiaWinUISampleApp : Application() {
         winuiWindow.systemBackdrop = MicaBackdrop()
         skiaLayer.attachTo(winuiWindow)
 
-        winuiWindow.closed.add(TypedEventHandler { _, _ ->
+        winuiWindow.closed.add { _, _ ->
             closeSample(closeWindow = false)
-        })
+        }
 
         activeWindow = winuiWindow
         activeLayer = skiaLayer

@@ -498,10 +498,10 @@ private class WinUIKeyboardModifierState {
 
     val current: WinUIKeyModifiers
         get() = WinUIKeyModifiers(
-            control = hasAny(VirtualKey.Control, VirtualKey.LeftControl, VirtualKey.RightControl),
-            alt = hasAny(VirtualKey.Menu, VirtualKey.LeftMenu, VirtualKey.RightMenu),
-            shift = hasAny(VirtualKey.Shift, VirtualKey.LeftShift, VirtualKey.RightShift),
-            windows = hasAny(VirtualKey.LeftWindows, VirtualKey.RightWindows),
+            control = hasAny(listOf(VirtualKey.Control, VirtualKey.LeftControl, VirtualKey.RightControl)),
+            alt = hasAny(listOf(VirtualKey.Menu, VirtualKey.LeftMenu, VirtualKey.RightMenu)),
+            shift = hasAny(listOf(VirtualKey.Shift, VirtualKey.LeftShift, VirtualKey.RightShift)),
+            windows = hasAny(listOf(VirtualKey.LeftWindows, VirtualKey.RightWindows)),
         )
 
     fun update(key: VirtualKey, pressed: Boolean) {
@@ -515,7 +515,7 @@ private class WinUIKeyboardModifierState {
         }
     }
 
-    private fun hasAny(vararg keys: VirtualKey): Boolean = keys.any(pressedKeys::contains)
+    private fun hasAny(keys: List<VirtualKey>): Boolean = keys.any(pressedKeys::contains)
 }
 
 internal fun WinUITextRange.boundedBy(length: Int): WinUITextRange {
@@ -556,6 +556,7 @@ private fun PointerDeviceType.toWinUIDeviceType(): WinUIPointerDeviceType = when
     PointerDeviceType.Pen -> WinUIPointerDeviceType.PEN
     PointerDeviceType.Mouse -> WinUIPointerDeviceType.MOUSE
     PointerDeviceType.Touchpad -> WinUIPointerDeviceType.TOUCHPAD
+    else -> WinUIPointerDeviceType.UNKNOWN
 }
 
 private fun PointerPointProperties?.toWinUIButtons(): WinUIPointerButtons = if (this == null) {
@@ -596,6 +597,7 @@ private fun PointerPointProperties?.toWinUIButtonChange(): WinUIPointerButtonCha
     PointerUpdateKind.XButton2Pressed -> WinUIPointerButtonChange.X2_PRESSED
     PointerUpdateKind.XButton2Released -> WinUIPointerButtonChange.X2_RELEASED
     PointerUpdateKind.Other, null -> WinUIPointerButtonChange.NONE
+    else -> WinUIPointerButtonChange.NONE
 }
 
 private fun VirtualKeyModifiers.toWinUIModifiers(): WinUIKeyModifiers = WinUIKeyModifiers(

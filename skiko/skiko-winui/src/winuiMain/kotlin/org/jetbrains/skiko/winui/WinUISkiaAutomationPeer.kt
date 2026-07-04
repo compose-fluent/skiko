@@ -46,6 +46,7 @@ internal class WinUISkiaAutomationPeer(
             AutomationNavigationDirection.LastChild -> model.childrenOf(id).lastOrNull()
             AutomationNavigationDirection.NextSibling -> siblingOf(id, offset = 1)
             AutomationNavigationDirection.PreviousSibling -> siblingOf(id, offset = -1)
+            else -> null
         } ?: return null
         return WinUISkiaAutomationPeer(layer, target.nodeId)
     }

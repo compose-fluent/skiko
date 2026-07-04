@@ -1,9 +1,5 @@
 package org.jetbrains.skiko.winui
 
-import io.github.composefluent.winrt.runtime.ComVtableInvoker
-import io.github.composefluent.winrt.runtime.Guid
-import io.github.composefluent.winrt.runtime.HResult
-import io.github.composefluent.winrt.runtime.IUnknownReference
 import io.github.composefluent.winrt.runtime.RuntimeScope
 import io.github.composefluent.winrt.runtime.WinRTWindowsAppSdkBootstrap
 import io.github.composefluent.winrt.runtime.asWinRT
@@ -758,39 +754,11 @@ private class SmokeSession(
     }
 
     private fun setWindowContent(window: Window, content: UIElement) {
-        val iContent = content.nativeObject.queryInterface(IUIELEMENT_IID).getOrThrow()
-        iContent.use { contentReference ->
-            withIWindow(window) { windowReference ->
-                HResult(
-                    ComVtableInvoker.invokeArgs(
-                        windowReference.pointer,
-                        IWINDOW_CONTENT_SETTER_SLOT,
-                        contentReference.pointer,
-                    )
-                ).requireSuccess("IWindow.Content setter")
-            }
-        }
+        window.content = content
     }
 
     private fun activateWindow(window: Window) {
-        withIWindow(window) { windowReference ->
-            HResult(
-                ComVtableInvoker.invoke(
-                    windowReference.pointer,
-                    IWINDOW_ACTIVATE_SLOT,
-                )
-            ).requireSuccess("IWindow.Activate")
-        }
-    }
-
-    private inline fun withIWindow(window: Window, block: (io.github.composefluent.winrt.runtime.IUnknownReference) -> Unit) {
-        val iWindow = window.nativeObject.queryInterface(IWINDOW_IID).getOrThrow()
-        iWindow.use { windowReference ->
-            io.github.composefluent.winrt.runtime.IUnknownReference(
-                windowReference.getRefPointer(),
-                IWINDOW_IID,
-            ).use(block)
-        }
+        window.activate()
     }
 
     private fun Any?.toAutomationPeerOrNull(): AutomationPeer? =
@@ -803,10 +771,6 @@ private class SmokeSession(
         private const val RESIZED_HEIGHT = 360.0
         private const val SHRUNK_WIDTH = 64.0
         private const val SHRUNK_HEIGHT = 32.0
-        private const val IWINDOW_CONTENT_SETTER_SLOT = 9
-        private const val IWINDOW_ACTIVATE_SLOT = 26
-        private val IWINDOW_IID = Guid("61F0EC79-5D52-56B5-86FB-40FA4AF288B0")
-        private val IUIELEMENT_IID = Guid("C3C01020-320C-5CF6-9D24-D396BBFA4D8B")
     }
 }
 
