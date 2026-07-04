@@ -8,10 +8,9 @@ import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.toKString
 import kotlinx.cinterop.cstr
-import kotlin.native.internal.NativePtr
 
 @OptIn(ExperimentalForeignApi::class)
-internal actual val WinUINullPointer: WinUINativePointer = NativePtr.NULL
+internal actual val WinUINullPointer: WinUINativePointer = 0L
 
 @OptIn(ExperimentalForeignApi::class)
 internal object WinUISkiaLayerNative : WinUIDirect3DRenderBridge {

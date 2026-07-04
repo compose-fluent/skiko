@@ -1,9 +1,5 @@
 package org.jetbrains.skiko.winui
 
-import org.jetbrains.skia.impl.NativePointer
-
-internal typealias WinUINativePointer = NativePointer
-
 internal expect val WinUINullPointer: WinUINativePointer
 
 internal interface WinUIDirect3DRenderBridge {

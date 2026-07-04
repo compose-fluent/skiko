@@ -1,4 +1,5 @@
 import org.gradle.api.tasks.JavaExec
+import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
 
 fun JavaExec.configureWinuiJvmSmokeClasspath() {
@@ -45,6 +46,10 @@ fun JavaExec.dependsOnWinuiJvmSmokeInputs() {
 }
 
 val isWindowsHost = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
+
+tasks.named<Test>("winuiJvmTest") {
+    failOnNoDiscoveredTests.set(false)
+}
 
 tasks.register<JavaExec>("runWinuiJvmSmoke") {
     group = "verification"

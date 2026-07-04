@@ -313,24 +313,38 @@ kotlin {
         commonMain {
             kotlin.srcDir("src/winuiMain/kotlin")
             dependencies {
-                if (localSkikoJar.isPresent) {
-                    implementation(files(rootProject.file(localSkikoJar.get())))
-                } else {
-                    implementation("org.jetbrains.skiko:skiko:${skikoVersion.get()}") {
-                        exclude(group = "org.jetbrains.skiko", module = "skiko-awt")
-                    }
-                }
             }
         }
         named("winuiJvmMain") {
             dependsOn(commonMain.get())
             dependencies {
+                if (localSkikoJar.isPresent) {
+                    implementation(files(rootProject.file(localSkikoJar.get())))
+                } else {
+                    implementation("org.jetbrains.skiko:skiko-jvm-api:${skikoVersion.get()}")
+                }
                 runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2")
+            }
+        }
+        named("winuiJvmTest") {
+            dependencies {
+                if (localSkikoJar.isPresent) {
+                    implementation(files(rootProject.file(localSkikoJar.get())))
+                } else {
+                    implementation("org.jetbrains.skiko:skiko-jvm-api:${skikoVersion.get()}")
+                }
             }
         }
         if (winuiMingwEnabled.get()) {
             named("winuiMingwMain") {
                 dependsOn(commonMain.get())
+                dependencies {
+                    if (localSkikoJar.isPresent) {
+                        implementation(files(rootProject.file(localSkikoJar.get())))
+                    } else {
+                        implementation("org.jetbrains.skiko:skiko:${skikoVersion.get()}")
+                    }
+                }
             }
             named("winuiMingwTest") {
                 dependencies {
@@ -345,7 +359,7 @@ dependencies {
     if (localSkikoJar.isPresent) {
         skikoWinuiEmbeddedSkikoApi(files(rootProject.file(localSkikoJar.get())))
     } else {
-        skikoWinuiEmbeddedSkikoApi("org.jetbrains.skiko:skiko:${skikoVersion.get()}")
+        skikoWinuiEmbeddedSkikoApi("org.jetbrains.skiko:skiko-jvm-api:${skikoVersion.get()}")
     }
 }
 
@@ -380,6 +394,7 @@ extensions.configure<io.github.composefluent.winrt.gradle.WinRTExtension>("winRT
     nugetPackage("Microsoft.WindowsAppSDK", winuiWindowsAppSdkVersion.get()) {
         generateProjection = true
     }
+    namespace("Microsoft.UI.Windowing")
     winuiProjectionTypes.forEach(::type)
 }
 

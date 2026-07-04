@@ -18,4 +18,6 @@ pluginManagement {
 rootProject.name = "skiko"
 include("ci")
 include("import-generator")
+include("skiko-jvm-api")
+project(":skiko-jvm-api").projectDir = file("jvm-api")
 include("test-utils")
