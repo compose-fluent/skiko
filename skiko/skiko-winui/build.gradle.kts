@@ -1,6 +1,7 @@
 @file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
 
 import org.gradle.api.artifacts.FileCollectionDependency
+import org.gradle.api.file.CopySpec
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import java.security.MessageDigest
@@ -140,32 +141,14 @@ val skipProjectionGeneration = providers.gradleProperty("skiko.winui.skipProject
     .map(String::toBoolean)
     .orElse(false)
 val localSkikoJar = providers.gradleProperty("skiko.winui.localSkikoJar")
-val skikoWinuiEmbeddedSkikoApi = configurations.create("skikoWinuiEmbeddedSkikoApi") {
-    isCanBeConsumed = false
-    isCanBeResolved = true
-    attributes {
-        attribute(
-            org.gradle.api.attributes.Category.CATEGORY_ATTRIBUTE,
-            objects.named(org.gradle.api.attributes.Category.LIBRARY),
-        )
-        attribute(
-            org.gradle.api.attributes.Usage.USAGE_ATTRIBUTE,
-            objects.named(org.gradle.api.attributes.Usage.JAVA_API),
-        )
-        attribute(
-            org.gradle.api.attributes.LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE,
-            objects.named(org.gradle.api.attributes.LibraryElements.JAR),
-        )
-        attribute(
-            org.gradle.api.attributes.Bundling.BUNDLING_ATTRIBUTE,
-            objects.named(org.gradle.api.attributes.Bundling.EXTERNAL),
-        )
-        attribute(
-            org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType.attribute,
-            org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType.jvm,
-        )
-    }
+val skikoWinuiSkikoApiInputJar = providers.provider {
+    localSkikoJar.orNull
+        ?.let { rootProject.file(it) }
+        ?: layout.projectDirectory.file("../build/libs/skiko-awt-${skikoVersion.get()}.jar").asFile
 }
+val skikoAwtJarBuildDependency = runCatching {
+    gradle.includedBuild("skiko").task(":awtJar")
+}.getOrNull()
 val kotlinWinRTAuthoringScannerRuntime = configurations.detachedConfiguration(
     dependencies.create("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.4.0")
 )
@@ -220,6 +203,52 @@ val winuiProjectionTypes = listOf(
     "Windows.UI.Xaml.Interop.Type",
 )
 
+fun CopySpec.includeWinuiJvmSkikoApi() {
+    include("META-INF/skiko.kotlin_module")
+    include("org/jetbrains/skia/**")
+    include("org/jetbrains/skiko/**")
+    exclude("org/jetbrains/skiko/*AWT*.class")
+    exclude("org/jetbrains/skiko/Actuals_awtKt*.class")
+    exclude("org/jetbrains/skiko/ClipComponent*.class")
+    exclude("org/jetbrains/skiko/ClipRectangle*.class")
+    exclude("org/jetbrains/skiko/DisplayKt*.class")
+    exclude("org/jetbrains/skiko/DrawingSurface*.class")
+    exclude("org/jetbrains/skiko/FullscreenAdapter*.class")
+    exclude("org/jetbrains/skiko/HardwareLayer*.class")
+    exclude("org/jetbrains/skiko/LinuxDrawingSurface*.class")
+    exclude("org/jetbrains/skiko/MainUIDispatcher_awtKt*.class")
+    exclude("org/jetbrains/skiko/SkiaLayer*.class")
+    exclude("org/jetbrains/skiko/SwingDispatcher*.class")
+    exclude("org/jetbrains/skiko/SystemTheme_awtKt*.class")
+    exclude("org/jetbrains/skiko/redrawer/**")
+    exclude("org/jetbrains/skiko/swing/**")
+}
+
+val skikoWinuiFilteredSkikoApiJar by tasks.registering(Jar::class) {
+    group = "build"
+    description = "Builds the internal AWT-free Skiko JVM API jar embedded by skiko-winui."
+    archiveBaseName.set("skiko-winui-filtered-skiko-api")
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    if (!localSkikoJar.isPresent) {
+        skikoAwtJarBuildDependency?.let { dependsOn(it) }
+    }
+    inputs.file(skikoWinuiSkikoApiInputJar)
+        .withPropertyName("skikoApiInputJar")
+    from({ zipTree(skikoWinuiSkikoApiInputJar.get()) }) {
+        includeWinuiJvmSkikoApi()
+    }
+    doFirst {
+        val inputJar = skikoWinuiSkikoApiInputJar.get()
+        if (!inputJar.isFile) {
+            throw GradleException(
+                "Skiko JVM API input jar was not found: $inputJar. " +
+                    "Build included Skiko :awtJar first or set -Pskiko.winui.localSkikoJar=<path>."
+            )
+        }
+    }
+}
+val skikoWinuiFilteredSkikoApi = files(skikoWinuiFilteredSkikoApiJar)
+
 // The WinRT plugin auto-adds these dependencies; normalize its JVM classpath fallback for KMP metadata consumers.
 configurations.named("commonMainImplementation") {
     withDependencies {
@@ -236,12 +265,15 @@ configurations.named("commonMainImplementation") {
     }
 }
 
-configurations.matching { it.name == "winuiJvmCompileClasspath" }.configureEach {
-    resolutionStrategy.dependencySubstitution {
-        substitute(module("org.jetbrains.skiko:skiko"))
-            .using(module("org.jetbrains.skiko:skiko-jvm-api:${skikoVersion.get()}"))
-            .because("winui-jvm must compile against the AWT-free Skiko API while common metadata uses Skiko MPP metadata")
-    }
+configurations.matching {
+    it.name in setOf(
+        "winuiJvmCompileClasspath",
+        "winuiJvmRuntimeClasspath",
+        "winuiJvmTestCompileClasspath",
+        "winuiJvmTestRuntimeClasspath",
+    )
+}.configureEach {
+    exclude(group = "org.jetbrains.skiko", module = "skiko")
 }
 
 repositories {
@@ -340,21 +372,13 @@ kotlin {
         named("winuiJvmMain") {
             dependsOn(winuiMain)
             dependencies {
-                if (localSkikoJar.isPresent) {
-                    compileOnly(files(rootProject.file(localSkikoJar.get())))
-                } else {
-                    compileOnly("org.jetbrains.skiko:skiko-jvm-api:${skikoVersion.get()}")
-                }
+                compileOnly(skikoWinuiFilteredSkikoApi)
                 runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2")
             }
         }
         named("winuiJvmTest") {
             dependencies {
-                if (localSkikoJar.isPresent) {
-                    implementation(files(rootProject.file(localSkikoJar.get())))
-                } else {
-                    implementation("org.jetbrains.skiko:skiko-jvm-api:${skikoVersion.get()}")
-                }
+                implementation(skikoWinuiFilteredSkikoApi)
             }
         }
         if (winuiMingwEnabled.get()) {
@@ -377,38 +401,12 @@ kotlin {
     }
 }
 
-dependencies {
-    if (localSkikoJar.isPresent) {
-        skikoWinuiEmbeddedSkikoApi(files(rootProject.file(localSkikoJar.get())))
-    } else {
-        skikoWinuiEmbeddedSkikoApi("org.jetbrains.skiko:skiko-jvm-api:${skikoVersion.get()}")
-    }
-}
-
 tasks.named<Jar>("winuiJvmJar") {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from(skikoWinuiEmbeddedSkikoApi.map { file ->
-        zipTree(file).matching {
-            include("META-INF/skiko.kotlin_module")
-            include("org/jetbrains/skia/**")
-            include("org/jetbrains/skiko/**")
-            exclude("org/jetbrains/skiko/*AWT*.class")
-            exclude("org/jetbrains/skiko/Actuals_awtKt*.class")
-            exclude("org/jetbrains/skiko/ClipComponent*.class")
-            exclude("org/jetbrains/skiko/ClipRectangle*.class")
-            exclude("org/jetbrains/skiko/DisplayKt*.class")
-            exclude("org/jetbrains/skiko/DrawingSurface*.class")
-            exclude("org/jetbrains/skiko/FullscreenAdapter*.class")
-            exclude("org/jetbrains/skiko/HardwareLayer*.class")
-            exclude("org/jetbrains/skiko/LinuxDrawingSurface*.class")
-            exclude("org/jetbrains/skiko/MainUIDispatcher_awtKt*.class")
-            exclude("org/jetbrains/skiko/SkiaLayer*.class")
-            exclude("org/jetbrains/skiko/SwingDispatcher*.class")
-            exclude("org/jetbrains/skiko/SystemTheme_awtKt*.class")
-            exclude("org/jetbrains/skiko/redrawer/**")
-            exclude("org/jetbrains/skiko/swing/**")
-        }
-    })
+    dependsOn(skikoWinuiFilteredSkikoApiJar)
+    from({ zipTree(skikoWinuiFilteredSkikoApiJar.get().archiveFile.get().asFile) }) {
+        includeWinuiJvmSkikoApi()
+    }
 }
 
 extensions.configure<io.github.composefluent.winrt.gradle.WinRTExtension>("winRT") {
