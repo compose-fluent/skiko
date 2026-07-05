@@ -19,7 +19,7 @@ actual open class SkiaLayer {
     actual var renderDelegate: SkikoRenderDelegate? = null
 
     actual fun attachTo(container: Any) {
-        throw UnsupportedOperationException("Skiko JVM core does not provide a platform layer host.")
+        throw UnsupportedOperationException("skiko-winui hosts rendering through WinUISkiaLayer.")
     }
 
     actual fun detach() = Unit
@@ -31,6 +31,6 @@ actual open class SkiaLayer {
     }
 
     actual internal fun draw(canvas: Canvas) {
-        throw UnsupportedOperationException("Skiko JVM core does not provide a drawing surface.")
+        throw UnsupportedOperationException("skiko-winui hosts rendering through WinUISkiaLayer.")
     }
 }

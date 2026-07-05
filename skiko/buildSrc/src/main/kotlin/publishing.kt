@@ -47,6 +47,10 @@ private class SkikoPublishingContext(
 fun SkikoProjectContext.declarePublications() {
     val ctx = SkikoPublishingContext(this)
     ctx.configurePublishingRepositories()
+    if (project.findProperty("skiko.winui.enabled") == "true") {
+        ctx.configurePomNames()
+        return
+    }
     ctx.configurePublicationDefaults()
     ctx.configureAllJvmRuntimeJarPublications()
     ctx.configureAwtRuntimeJarPublication()
@@ -191,6 +195,8 @@ private fun SkikoPublishingContext.configureAllJvmRuntimeJarPublications() = pub
  * which resolves the correct artifact for the current platform.
  */
 private fun SkikoPublishingContext.configureAwtRuntimeJarPublication() {
+    if (!project.supportAwt) return
+
     val allJvmRuntimeVariants = awtRuntimeTargets.map { (os, arch) ->
         project.configurations.create("awtRuntimeElements-${targetId(os, arch)}").apply {
 
@@ -286,6 +292,8 @@ private fun SkikoPublishingContext.configureAwtRuntimeJarPublication() {
  * - Gradle Module Metadata (via dependencyConstraints in variants)
  */
 private fun SkikoPublishingContext.configureAwtPublicationConstraints() {
+    if (!project.supportAwt) return
+
     // Add constraints to Gradle configurations
     // This will automatically generate both POM dependencyManagement and Gradle Module Metadata dependencyConstraints
     listOf("awtApiElements", "awtRuntimeElements").forEach { configName ->
@@ -338,12 +346,15 @@ private fun SkikoPublishingContext.configureAndroidPublication() = publications 
 }
 
 private fun SkikoPublishingContext.configurePomNames() = publications {
-    val publicationsWithoutPomNames = this.toList().filter { it.name !in pomNameForPublication }
+    val publicationsWithoutPomNames = this.toList().filter {
+        it.name !in pomNameForPublication &&
+            (it as? MavenPublication)?.pom?.name?.orNull.isNullOrBlank()
+    }
     if (publicationsWithoutPomNames.isNotEmpty()) {
         error("Publications with unknown POM names: ${publicationsWithoutPomNames.joinToString { "'${it.name}'" }}")
     }
     configureEach {
         this as MavenPublication
-        pom.name.set(pomNameForPublication[name]!!)
+        pomNameForPublication[name]?.let { pom.name.set(it) }
     }
 }

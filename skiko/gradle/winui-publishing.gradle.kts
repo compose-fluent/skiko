@@ -7,7 +7,7 @@ import java.util.Properties
 plugins.apply("signing")
 
 val skikoUpstreamProperties = Properties().apply {
-    val file = rootProject.file("skiko/gradle.properties")
+    val file = rootProject.file("gradle.properties")
     if (file.isFile) {
         file.inputStream().use(::load)
     }

@@ -31,7 +31,3 @@ if (settingsFlag("skiko.winui.enabled") && settingsFlag("skiko.winui.samples.ena
 if (!settingsFlag("skiko.winui.skipSkikoComposite")) {
     includeBuild("skiko")
 }
-if (settingsFlag("skiko.winui.enabled")) {
-    include("skiko-winui")
-    project(":skiko-winui").projectDir = file("skiko/skiko-winui")
-}

@@ -37,15 +37,14 @@ val winuiSkikoWindowsOutputDir = layout.buildDirectory.dir("native/skikoWinui/wi
 val winuiSkikoWindowsObjectsDir = winuiSkikoWindowsOutputDir.map { it.dir("obj") }
 val winuiSkikoWindowsDllFile = winuiSkikoWindowsOutputDir.map { it.file(skikoWinuiWindowsRuntimeDllName) }
 val winuiSkikoWindowsCompatSource = layout.projectDirectory.file("src/winuiJvmMain/cpp/windows/msvcStlCompat.cc")
-val skikoProjectDir = layout.projectDirectory.asFile.parentFile
-val includedSkikoBuild = gradle.includedBuilds.firstOrNull { it.name == "skiko" }
+val skikoProjectDir = layout.projectDirectory.asFile
 
 fun skikoProjectFile(path: String): File =
     skikoProjectDir.resolve(path)
 
 fun Task.dependsOnIncludedSkikoWindowsSkia() {
-    if (includedSkikoBuild != null && !winuiNativeWindowsSkiaDir.isPresent) {
-        dependsOn(includedSkikoBuild.task(":unzipSkiaReleaseWindowsX64"))
+    if (!winuiNativeWindowsSkiaDir.isPresent) {
+        dependsOn("unzipSkiaReleaseWindowsX64")
     }
 }
 

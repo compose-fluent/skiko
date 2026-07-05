@@ -1,8 +1,9 @@
 @file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
 
-import org.gradle.api.artifacts.FileCollectionDependency
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
+import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import io.github.composefluent.winrt.gradle.KotlinWinRTPlugin
+import tasks.configuration.generateVersion
 import java.security.MessageDigest
 
 buildscript {
@@ -28,12 +29,7 @@ buildscript {
     }
 }
 
-plugins {
-    kotlin("multiplatform")
-    `maven-publish`
-}
-
-apply(plugin = "io.github.composefluent.winrt")
+apply<KotlinWinRTPlugin>()
 
 val kotlinWinRTVersion = providers.gradleProperty("kotlinWinRT.version")
     .orElse("0.1.0-SNAPSHOT")
@@ -52,6 +48,10 @@ val winuiMingwSkikoBridgeImportLib = layout.buildDirectory.file("native/winuiMin
 val winuiMingwSharedLibOutputDir = layout.buildDirectory.dir("bin/winuiMingw/releaseShared")
 val winuiMingwRuntimeResourceDir = layout.buildDirectory.dir("generated/winuiMingwRuntimeResources")
 val winuiMingwRuntimeResourcePath = "winui-mingw/windows-x64"
+val winuiGeneratedSourceDirs = listOf(
+    layout.buildDirectory.dir("generated/kotlin-winrt/src/commonMain/kotlin"),
+    layout.buildDirectory.dir("generated/kotlin-winrt-authoring/src/commonMain/kotlin"),
+)
 
 fun windowsSdkRootFromRegistry(): File? {
     val keys = listOf(
@@ -136,18 +136,10 @@ val winuiJvmTarget = providers.gradleProperty("skiko.winui.jvmTarget")
     .orElse("25")
 val winuiJvmToolchain = providers.gradleProperty("skiko.winui.jvmToolchain")
     .orElse(winuiJvmTarget)
+val winuiSkikoProperties = SkikoProperties(rootProject)
 val skipProjectionGeneration = providers.gradleProperty("skiko.winui.skipProjectionGeneration")
     .map(String::toBoolean)
     .orElse(false)
-val localSkikoJar = providers.gradleProperty("skiko.winui.localSkikoJar")
-val skikoWinuiSkikoApiInputJar = providers.provider {
-    localSkikoJar.orNull
-        ?.let { rootProject.file(it) }
-        ?: layout.projectDirectory.file("../build/libs/skiko-jvm-core-${skikoVersion.get()}.jar").asFile
-}
-val skikoJvmCoreJarBuildDependency = runCatching {
-    gradle.includedBuild("skiko").task(":skikoJvmCoreJar")
-}.getOrNull()
 val kotlinWinRTAuthoringScannerRuntime = configurations.detachedConfiguration(
     dependencies.create("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.4.0")
 )
@@ -202,54 +194,6 @@ val winuiProjectionTypes = listOf(
     "Windows.UI.Xaml.Interop.Type",
 )
 
-val checkSkikoWinuiSkikoApiInput by tasks.registering {
-    if (!localSkikoJar.isPresent) {
-        skikoJvmCoreJarBuildDependency?.let { dependsOn(it) }
-    }
-    inputs.file(skikoWinuiSkikoApiInputJar)
-        .withPropertyName("skikoJvmCoreInputJar")
-    doLast {
-        val inputJar = skikoWinuiSkikoApiInputJar.get()
-        if (!inputJar.isFile) {
-            throw GradleException(
-                "Skiko JVM core input jar was not found: $inputJar. " +
-                    "Build included Skiko :skikoJvmCoreJar first or set -Pskiko.winui.localSkikoJar=<path>."
-            )
-        }
-    }
-}
-val skikoWinuiSkikoApi = files(skikoWinuiSkikoApiInputJar)
-    .builtBy(checkSkikoWinuiSkikoApiInput)
-
-// The WinRT plugin auto-adds these dependencies; normalize its JVM classpath fallback for KMP metadata consumers.
-configurations.named("commonMainImplementation") {
-    withDependencies {
-        val automaticWinRTModules = listOf("winrt-runtime", "winrt-authoring")
-        automaticWinRTModules.forEach { module ->
-            removeAll { dependency ->
-                dependency is FileCollectionDependency &&
-                    dependency.files.files.any { file -> file.name.startsWith("$module-jvm-") }
-            }
-            if (none { dependency -> dependency.group == kotlinWinRTGroup.get() && dependency.name == module }) {
-                add(project.dependencies.create("${kotlinWinRTGroup.get()}:$module:${kotlinWinRTVersion.get()}"))
-            }
-        }
-    }
-}
-
-configurations.matching {
-    it.name in setOf(
-        "winuiJvmCompileClasspath",
-        "winuiJvmMainCompileClasspath",
-        "winuiJvmMainRuntimeClasspath",
-        "winuiJvmRuntimeClasspath",
-        "winuiJvmTestCompileClasspath",
-        "winuiJvmTestRuntimeClasspath",
-    )
-}.configureEach {
-    exclude(group = "org.jetbrains.skiko", module = "skiko")
-}
-
 repositories {
     maven("https://central.sonatype.com/repository/maven-snapshots/") {
         mavenContent {
@@ -260,13 +204,8 @@ repositories {
     google()
 }
 
-kotlin {
+extensions.configure<KotlinMultiplatformExtension>("kotlin") {
     jvmToolchain(winuiJvmToolchain.get().toInt())
-
-    compilerOptions {
-        languageVersion.set(KotlinVersion.KOTLIN_2_2)
-        apiVersion.set(KotlinVersion.KOTLIN_2_2)
-    }
 
     jvm("winuiJvm") {
         compilations.all {
@@ -274,6 +213,7 @@ kotlin {
                 compilerOptions.jvmTarget.set(JvmTarget.fromTarget(winuiJvmTarget.get()))
             }
         }
+        generateVersion(OS.Windows, Arch.X64, winuiSkikoProperties)
     }
     if (winuiMingwEnabled.get()) {
         mingwX64("winuiMingw") {
@@ -324,47 +264,38 @@ kotlin {
     }
 
     sourceSets {
-        commonMain {
-            kotlin.exclude(
-                "io/github/composefluent/winrt/**",
-                "kotlin-winrt-authoring/**",
-                "kotlin-winrt-support/**",
-                "microsoft/**",
-                "org/jetbrains/skiko/winui/WinRT_*",
-                "windows/**",
-                "winrt/**",
-            )
-        }
         val winuiMain by creating {
-            kotlin.srcDir(layout.buildDirectory.dir("generated/kotlin-winrt/src/commonMain/kotlin"))
-            kotlin.srcDir(layout.buildDirectory.dir("generated/kotlin-winrt-authoring/src/commonMain/kotlin"))
+            winuiGeneratedSourceDirs.forEach { kotlin.srcDir(it) }
             dependsOn(commonMain.get())
             dependencies {
-                compileOnly("org.jetbrains.skiko:skiko:${skikoVersion.get()}")
+                implementation("${kotlinWinRTGroup.get()}:winrt-runtime:${kotlinWinRTVersion.get()}")
+                implementation("${kotlinWinRTGroup.get()}:winrt-authoring:${kotlinWinRTVersion.get()}")
+            }
+        }
+        named("jvmMain") {
+            dependencies {
+                implementation(kotlin("stdlib"))
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2")
             }
         }
         named("winuiJvmMain") {
             dependsOn(winuiMain)
             dependencies {
-                compileOnly(skikoWinuiSkikoApi)
-                runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2")
+                implementation(kotlin("stdlib"))
+                implementation("${kotlinWinRTGroup.get()}:winrt-runtime-jvm:${kotlinWinRTVersion.get()}")
             }
         }
         named("winuiJvmTest") {
             dependencies {
-                implementation(skikoWinuiSkikoApi)
+                implementation(kotlin("test"))
+                implementation(kotlin("test-junit"))
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+                implementation(project(":test-utils"))
             }
         }
         if (winuiMingwEnabled.get()) {
             named("winuiMingwMain") {
                 dependsOn(winuiMain)
-                dependencies {
-                    if (localSkikoJar.isPresent) {
-                        implementation(files(rootProject.file(localSkikoJar.get())))
-                    } else {
-                        implementation("org.jetbrains.skiko:skiko:${skikoVersion.get()}")
-                    }
-                }
             }
             named("winuiMingwTest") {
                 dependencies {
@@ -375,10 +306,17 @@ kotlin {
     }
 }
 
-tasks.named<Jar>("winuiJvmJar") {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    dependsOn(checkSkikoWinuiSkikoApiInput)
-    from({ zipTree(skikoWinuiSkikoApiInputJar.get()) })
+afterEvaluate {
+    extensions.configure<KotlinMultiplatformExtension>("kotlin") {
+        val generatedSourceRoots = winuiGeneratedSourceDirs.map { it.get().asFile.canonicalFile }.toSet()
+        sourceSets.named("commonMain") {
+            kotlin.setSrcDirs(
+                kotlin.srcDirs.filterNot { sourceDir ->
+                    sourceDir.canonicalFile in generatedSourceRoots
+                }
+            )
+        }
+    }
 }
 
 extensions.configure<io.github.composefluent.winrt.gradle.WinRTExtension>("winRT") {
@@ -397,7 +335,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().con
     )
 }
 
-apply(from = "gradle/windows-native.gradle.kts")
+apply(from = "gradle/winui-windows-native.gradle.kts")
 
 tasks.register("writeWinuiMingwSkiaBridgeCInteropDef") {
     group = "build"
@@ -506,6 +444,6 @@ tasks.named<io.github.composefluent.winrt.gradle.GenerateWinRTProjectionsTask>("
     )
 }
 
-apply(from = "gradle/awt-free-boundary.gradle.kts")
-apply(from = "gradle/publishing.gradle.kts")
-apply(from = "gradle/smoke.gradle.kts")
+apply(from = "gradle/winui-awt-free-boundary.gradle.kts")
+apply(from = "gradle/winui-publishing.gradle.kts")
+apply(from = "gradle/winui-smoke.gradle.kts")

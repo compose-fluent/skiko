@@ -15,12 +15,12 @@ internal actual fun makeDefaultRenderFactory(): RenderFactory =
             override fun needRender(throttledToVsync: Boolean) = Unit
 
             override fun renderImmediately() {
-                throw UnsupportedOperationException("Skiko JVM core does not provide a rendering backend for $renderApi.")
+                throw UnsupportedOperationException("skiko-winui does not use the Skiko AWT redrawer for $renderApi.")
             }
 
             override fun update(nanoTime: Long) = Unit
 
-            override val renderInfo: String = "Skiko JVM core"
+            override val renderInfo: String = "skiko-winui"
 
             override fun isTransparentBackgroundSupported(): Boolean = false
         }

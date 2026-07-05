@@ -4,9 +4,12 @@ val checkWinuiAwtFreeBoundary by tasks.registering {
 
     val checkedFiles = provider {
         listOf(
-            layout.projectDirectory.file("build.gradle.kts").asFile,
+            layout.projectDirectory.file("gradle/winui.gradle.kts").asFile,
+            layout.projectDirectory.file("gradle/winui-windows-native.gradle.kts").asFile,
+            layout.projectDirectory.file("gradle/winui-publishing.gradle.kts").asFile,
+            layout.projectDirectory.file("gradle/winui-smoke.gradle.kts").asFile,
         ) + fileTree(layout.projectDirectory.dir("src")) {
-            include("**/*.kt", "**/*.java", "**/*.cc", "**/*.cpp", "**/*.h", "**/*.hh")
+            include("winui*/**/*.kt", "winui*/**/*.java", "winui*/**/*.cc", "winui*/**/*.cpp", "winui*/**/*.h", "winui*/**/*.hh")
         }.files
     }
     inputs.files(checkedFiles)
@@ -60,8 +63,7 @@ val checkWinuiJvmApiClasspathBoundary by tasks.registering {
             .allComponents
             .map { component -> component.id.displayName }
             .filter { displayName ->
-                displayName == "project :skiko" ||
-                    displayName.startsWith("org.jetbrains.skiko:skiko:")
+                displayName.startsWith("org.jetbrains.skiko:skiko:")
             }
 
         if (forbiddenComponents.isNotEmpty()) {

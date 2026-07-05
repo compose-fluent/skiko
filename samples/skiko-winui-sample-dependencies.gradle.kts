@@ -27,10 +27,7 @@ val skikoWinuiMingwMavenNotations = listOf(
 
 val skikoWinuiCommonDependencyNotations: List<Any> = when (val mode = skikoWinuiDependencyMode.get()) {
     "local", "maven" -> if (skikoWinuiUseLocalProject.get()) {
-        listOf(
-            project(":skiko-winui"),
-            "${kotlinWinRTGroup.get()}:winrt-runtime:${kotlinWinRTVersion.get()}",
-        )
+        skikoWinuiCommonMavenNotations
     } else {
         skikoWinuiCommonMavenNotations
     }
@@ -54,7 +51,7 @@ val skikoWinuiJvmDependencyNotations: List<Any> = when (val mode = skikoWinuiDep
 
 val skikoWinuiMingwDependencyNotations: List<Any> = when (val mode = skikoWinuiDependencyMode.get()) {
     "local", "maven" -> if (skikoWinuiUseLocalProject.get()) {
-        emptyList()
+        skikoWinuiMingwMavenNotations
     } else {
         skikoWinuiMingwMavenNotations
     }

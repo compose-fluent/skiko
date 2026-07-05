@@ -96,7 +96,7 @@ val skikoWinuiVersion = providers.gradleProperty("skiko.winui.version")
 val skikoWinuiUseLocalProject = providers.gradleProperty("skiko.winui.useLocalProject")
     .map(String::toBoolean)
     .orElse(false)
-val skikoWinuiMingwProjectDependency = if (skikoWinuiUseLocalProject.get()) project(":skiko-winui") else null
+val skikoWinuiMingwProjectDependency: Any? = null
 val skikoWinuiWindowsRuntimeJarProvider = providers.gradleProperty("skiko.winui.windowsRuntimeJar")
     .map(layout.projectDirectory::file)
 val skikoWinuiMingwRuntimeJarProvider = providers.gradleProperty("skiko.winui.mingwRuntimeJar")
@@ -508,12 +508,12 @@ tasks.register<Copy>("unpackSkikoWinuiMingwRuntime") {
     description = "Unpacks skiko-winui-mingw-runtime.jar for WinRT application payload staging."
     onlyIf { isWindowsHost }
     if (skikoWinuiUseLocalProject.get()) {
-        dependsOn(":skiko-winui:skikoWinuiMingwRuntimeJar")
+        dependsOn(gradle.includedBuild("skiko").task(":skikoWinuiMingwRuntimeJar"))
     }
     val runtimeJar = if (skikoWinuiMingwRuntimeJarProvider.isPresent) {
         skikoWinuiMingwRuntimeJarProvider.map { files(it) }
     } else if (skikoWinuiUseLocalProject.get()) {
-        provider { files(layout.projectDirectory.file("../../skiko/skiko-winui/build/libs/skiko-winui-mingw-runtime.jar")) }
+        provider { files(layout.projectDirectory.file("../../skiko/build/libs/skiko-winui-mingw-runtime.jar")) }
     } else {
         provider { skikoWinuiMingwRuntimeFiles }
     }
@@ -526,12 +526,12 @@ tasks.register<Copy>("unpackSkikoWinuiWindowsRuntime") {
     description = "Unpacks skiko-winui-windows.jar for shared ICU data staging."
     onlyIf { isWindowsHost }
     if (skikoWinuiUseLocalProject.get() && !skikoWinuiWindowsRuntimeJarProvider.isPresent) {
-        dependsOn(":skiko-winui:skikoWinuiWindowsRuntimeJar")
+        dependsOn(gradle.includedBuild("skiko").task(":skikoWinuiWindowsRuntimeJar"))
     }
     val runtimeJar = if (skikoWinuiWindowsRuntimeJarProvider.isPresent) {
         skikoWinuiWindowsRuntimeJarProvider.map { files(it) }
     } else if (skikoWinuiUseLocalProject.get()) {
-        provider { files(layout.projectDirectory.file("../../skiko/skiko-winui/build/libs/skiko-winui-windows.jar")) }
+        provider { files(layout.projectDirectory.file("../../skiko/build/libs/skiko-winui-windows.jar")) }
     } else {
         provider { skikoWinuiWindowsRuntimeFiles }
     }

@@ -180,7 +180,8 @@ val Project.supportAndroid: Boolean
     get() = findProperty(SkikoGradleProperties.ANDROID_ENABLED) == "true" // || isInIdea
 
 val Project.supportAwt: Boolean
-    get() = findProperty(SkikoGradleProperties.AWT_ENABLED) == "true" || isInIdea
+    get() = !(name == "skiko" && findProperty("skiko.winui.enabled") == "true") &&
+        (findProperty(SkikoGradleProperties.AWT_ENABLED) == "true" || isInIdea)
 
 val Project.supportAllNative: Boolean
     get() = findProperty(SkikoGradleProperties.NATIVE_ENABLED) == "true" || isInIdea

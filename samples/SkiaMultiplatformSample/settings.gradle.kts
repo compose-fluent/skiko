@@ -50,10 +50,10 @@ if (providers.gradleProperty("skiko.winui.useLocalProject").map(String::toBoolea
     includeBuild("../../skiko") {
         dependencySubstitution {
             substitute(module("org.jetbrains.skiko:skiko")).using(project(":"))
+            substitute(module("io.github.compose-fluent:skiko-winui")).using(project(":"))
+            substitute(module("io.github.compose-fluent:skiko-winui-mingw")).using(project(":"))
         }
     }
-    include("skiko-winui")
-    project(":skiko-winui").projectDir = file("../../skiko/skiko-winui")
 }
 
 if (extra.properties.getOrDefault("skiko.composite.build", "") == "1") {
