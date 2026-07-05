@@ -226,6 +226,54 @@ kotlin {
                     compilerOptions.jvmTarget.set(JvmTarget.JVM_11)
                 }
             }
+            val jvmCoreCompilation = compilations.create("jvmCore") {
+                val jvmCoreCommonSourceSet = this@kotlin.sourceSets.getByName("commonJvmCore")
+                jvmCoreCommonSourceSet.kotlin.srcDirs(
+                    "src/commonMain/kotlin",
+                )
+                jvmCoreCommonSourceSet.resources.srcDirs(
+                    "src/commonMain/resources",
+                )
+                jvmCoreCommonSourceSet.dependencies {
+                    implementation(kotlin("stdlib"))
+                    implementation(libs.coroutines.core)
+                }
+                val jvmCoreJvmSourceSet = this@kotlin.sourceSets.maybeCreate("jvmCoreJvmMain")
+                jvmCoreJvmSourceSet.kotlin.srcDirs(
+                    "src/jvmMain/kotlin",
+                )
+                jvmCoreJvmSourceSet.resources.srcDirs(
+                    "src/jvmMain/resources",
+                )
+                jvmCoreJvmSourceSet.dependsOn(jvmCoreCommonSourceSet)
+                jvmCoreJvmSourceSet.dependencies {
+                    implementation(kotlin("stdlib"))
+                    implementation(libs.coroutines.core.jvm)
+                }
+                defaultSourceSet.kotlin.srcDirs(
+                    "src/jvmCoreMain/kotlin",
+                    layout.buildDirectory.dir("generated/awt"),
+                )
+                defaultSourceSet.resources.srcDirs(
+                    "src/jvmCoreMain/resources",
+                )
+                defaultSourceSet.dependsOn(jvmCoreJvmSourceSet)
+                defaultSourceSet.dependencies {
+                    implementation(kotlin("stdlib"))
+                    implementation(libs.coroutines.core.jvm)
+                }
+                compileTaskProvider.configure {
+                    compilerOptions.jvmTarget.set(JvmTarget.JVM_11)
+                    dependsOn("generateVersionJvmWindowsX64")
+                }
+            }
+            tasks.register<Jar>("skikoJvmCoreJar") {
+                group = "build"
+                description = "Builds the Skiko JVM core classes without the AWT backend."
+                archiveBaseName.set("skiko-jvm-core")
+                duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+                from(jvmCoreCompilation.output.allOutputs)
+            }
             generateVersion(targetOs, targetArch, skiko)
         }
     }
