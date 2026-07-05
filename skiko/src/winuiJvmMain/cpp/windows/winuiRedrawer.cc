@@ -31,6 +31,42 @@
 #include <wrl/client.h>
 
 #ifdef SKIKO_WINUI_MINGW
+extern "C" const char* uloc_getDefault_skiko() {
+    static char localeName[LOCALE_NAME_MAX_LENGTH * 4] = "en-US";
+    wchar_t wideLocaleName[LOCALE_NAME_MAX_LENGTH] = {};
+    int wideLength = GetUserDefaultLocaleName(wideLocaleName, LOCALE_NAME_MAX_LENGTH);
+    if (wideLength > 0) {
+        int utf8Length = WideCharToMultiByte(
+            CP_UTF8,
+            0,
+            wideLocaleName,
+            -1,
+            localeName,
+            sizeof(localeName),
+            nullptr,
+            nullptr
+        );
+        if (utf8Length <= 0) {
+            strcpy(localeName, "en-US");
+        }
+    }
+    return localeName;
+}
+
+extern "C" int uloc_toLanguageTag_skiko(const char* localeId, char* buffer, int size, bool, void*) {
+    const char* tag = (localeId != nullptr && localeId[0] != '\0') ? localeId : "en-US";
+    int length = static_cast<int>(strlen(tag));
+    if (buffer != nullptr && size > 0) {
+        int copied = length < size - 1 ? length : size - 1;
+        if (copied > 0) {
+            memcpy(buffer, tag, copied);
+        }
+        buffer[copied] = '\0';
+        return copied;
+    }
+    return length;
+}
+
 struct ISwapChainPanelNative : IUnknown {
     virtual HRESULT STDMETHODCALLTYPE SetSwapChain(IDXGISwapChain *swapChain) = 0;
 };

@@ -13,7 +13,8 @@ on:
       - 'build.gradle.kts'
       - 'skiko/build.gradle.kts'
       - 'skiko/buildSrc/**'
-      - 'skiko/skiko-winui/**'
+      - 'skiko/gradle/winui*.gradle.kts'
+      - 'skiko/src/winui*/**'
       - 'samples/SkiaWinUISample/**'
       - 'samples/SkiaWinUIMingwSmoke/**'
       - 'samples/SkiaMultiplatformSample/**'
@@ -109,10 +110,10 @@ jobs:
               -Pskiko.winui.jvmTarget=25 \
               -Pskiko.winui.jvmToolchain=25 \
               -Pskiko.winui.mingw.enabled=true \
-              -Pskiko.native.windows.enabled=true \
               -Pskiko.winui.skipSamples=true \
-              :skiko-winui:checkWinuiAwtFreeBoundary \
-              :skiko-winui:winuiMingwTest && exit 0
+              :skiko:checkWinuiAwtFreeBoundary \
+              :skiko:compileKotlinWinuiMingw \
+              :skiko:linkReleaseSharedWinuiMingw && exit 0
             if [ "$attempt" = "3" ]; then
               exit 1
             fi

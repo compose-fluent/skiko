@@ -444,6 +444,29 @@ tasks.named<io.github.composefluent.winrt.gradle.GenerateWinRTProjectionsTask>("
     )
 }
 
+tasks.matching {
+    it.name in setOf(
+        "compileCommonMainKotlinMetadata",
+        "compileWinuiMainKotlinMetadata",
+        "compileKotlinWinuiJvm",
+        "compileKotlinWinuiMingw",
+    )
+}.configureEach {
+    dependsOn("generateWinRTProjections")
+    dependsOn("mergeWinRTCompilerSupport")
+}
+
+tasks.matching {
+    it.name in setOf(
+        "sourcesJar",
+        "winuiJvmSourcesJar",
+        "winuiMingwSourcesJar",
+    )
+}.configureEach {
+    dependsOn("generateWinRTProjections")
+    dependsOn("mergeWinRTCompilerSupport")
+}
+
 apply(from = "gradle/winui-awt-free-boundary.gradle.kts")
 apply(from = "gradle/winui-publishing.gradle.kts")
 apply(from = "gradle/winui-smoke.gradle.kts")
