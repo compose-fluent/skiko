@@ -430,19 +430,26 @@ tasks.named<io.github.composefluent.winrt.gradle.GenerateWinRTProjectionsTask>("
 
 afterEvaluate {
     val mingwOnlyTaskNames = arrayOf(
+        "compileKotlinWinuiMingw",
         "generateCompileKotlinWinuiMingwWinRTCompilerAuthoredTypeDetails",
         "validateCompileKotlinWinuiMingwWinRTAuthoredCandidates",
         "validateCompileKotlinWinuiMingwWinRTNativeAuthoringExports",
         "linkReleaseSharedWinuiMingw",
     )
-    listOf(
+    val winRTPackagingTaskNames = listOf(
         "generateWinRTIdentity",
         "stageWinRTRuntimeAssets",
         "stageWinRTApplicationPackage",
         "buildWinRTApplicationHost",
-    ).forEach { taskName ->
+    )
+    winRTPackagingTaskNames.forEach { taskName ->
         tasks.matching { it.name == taskName }.configureEach {
             removeDependenciesNamed(*mingwOnlyTaskNames)
+        }
+    }
+    winRTPackagingTaskNames.forEach { taskName ->
+        tasks.matching { it.name == taskName }.configureEach {
+            mustRunAfter(*mingwOnlyTaskNames)
         }
     }
 }
