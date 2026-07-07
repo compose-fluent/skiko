@@ -8,6 +8,11 @@ dependencyResolutionManagement {
 
 pluginManagement {
     repositories {
+        maven("https://central.sonatype.com/repository/maven-snapshots/") {
+            mavenContent {
+                snapshotsOnly()
+            }
+        }
         mavenCentral {
             url = uri("https://cache-redirector.jetbrains.com/maven-central")
         }

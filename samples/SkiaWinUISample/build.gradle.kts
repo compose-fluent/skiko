@@ -1,35 +1,13 @@
 @file:Suppress("UNCHECKED_CAST")
 
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
-buildscript {
-    val kotlinWinRTVersion = providers.gradleProperty("kotlinWinRT.version")
-        .orElse("0.1.0-SNAPSHOT")
-        .get()
-    val kotlinWinRTGroup = providers.gradleProperty("kotlinWinRT.group")
-        .orElse("io.github.compose-fluent")
-        .get()
-
-    repositories {
-        maven("https://central.sonatype.com/repository/maven-snapshots/") {
-            mavenContent {
-                snapshotsOnly()
-            }
-        }
-        mavenCentral()
-        gradlePluginPortal()
-        google()
-    }
-    dependencies {
-        classpath("$kotlinWinRTGroup:winrt-gradle-plugin:$kotlinWinRTVersion")
-    }
-}
+import org.gradle.api.Task
+import org.gradle.api.tasks.TaskProvider
 
 plugins {
     kotlin("multiplatform") version "2.4.0"
+    id("io.github.composefluent.winrt")
 }
-
-apply(plugin = "io.github.composefluent.winrt")
 
 apply(from = "../skiko-winui-sample-dependencies.gradle.kts")
 
@@ -62,6 +40,9 @@ val skikoWinuiVersion = providers.gradleProperty("skiko.winui.version")
 val skikoWinuiUseLocalProject = providers.gradleProperty("skiko.winui.useLocalProject")
     .map(String::toBoolean)
     .orElse(false)
+val winuiMingwEnabled = providers.gradleProperty("skiko.winui.mingw.enabled")
+    .map(String::toBoolean)
+    .orElse(true)
 val skikoWinuiWindowsRuntimeJarProvider = providers.gradleProperty("skiko.winui.windowsRuntimeJar")
     .map(layout.projectDirectory::file)
 val skikoWinuiMingwRuntimeJarProvider = providers.gradleProperty("skiko.winui.mingwRuntimeJar")
@@ -84,11 +65,29 @@ val sampleWindowsAppSdkVersion = providers.gradleProperty("skiko.winui.windowsAp
 val sampleWindowsSdkVersion = providers.gradleProperty("skiko.winui.windowsSdkVersion")
     .orElse("10.0.26100.0")
 
+fun Task.removeDependenciesNamed(vararg taskNames: String) {
+    val names = taskNames.toSet()
+    setDependsOn(dependsOn.filterNot { dependency ->
+        when (dependency) {
+            is Task -> dependency.name in names
+            is TaskProvider<*> -> dependency.name in names
+            else -> names.any { name -> dependency.toString().contains(name) }
+        }
+    })
+}
+
+fun localSkikoBuildLibFiles(baseName: String) = provider {
+    val libsDir = layout.projectDirectory.dir("../../skiko/build/libs").asFile
+    val versioned = libsDir.resolve("$baseName-${skikoWinuiVersion.get()}.jar")
+    val plain = libsDir.resolve("$baseName.jar")
+    files(if (versioned.isFile) versioned else plain)
+}
+
 dependencies {
     if (!skikoWinuiUseLocalProject.get() && !skikoWinuiWindowsRuntimeJarProvider.isPresent) {
         skikoWinuiWindowsRuntimeFiles("io.github.compose-fluent:skiko-winui-windows:${skikoWinuiVersion.get()}")
     }
-    if (!skikoWinuiUseLocalProject.get() && !skikoWinuiMingwRuntimeJarProvider.isPresent) {
+    if (winuiMingwEnabled.get() && !skikoWinuiUseLocalProject.get() && !skikoWinuiMingwRuntimeJarProvider.isPresent) {
         skikoWinuiMingwRuntimeFiles("io.github.compose-fluent:skiko-winui-mingw-runtime:${skikoWinuiVersion.get()}")
     }
 }
@@ -104,10 +103,12 @@ kotlin {
         }
     }
 
-    mingwX64("winuiMingw") {
-        binaries {
-            executable {
-                baseName = "skia-winui-sample"
+    if (winuiMingwEnabled.get()) {
+        mingwX64("winuiMingw") {
+            binaries {
+                executable {
+                    baseName = "skia-winui-sample"
+                }
             }
         }
     }
@@ -117,6 +118,10 @@ kotlin {
             dependencies {
                 implementation(kotlin("stdlib"))
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+            }
+        }
+        winuiMain {
+            dependencies {
                 skikoWinuiCommonDependencyNotations.forEach(::implementation)
             }
         }
@@ -125,9 +130,11 @@ kotlin {
                 skikoWinuiJvmDependencyNotations.forEach(::implementation)
             }
         }
-        val winuiMingwMain by getting {
-            dependencies {
-                skikoWinuiMingwDependencyNotations.forEach(::implementation)
+        if (winuiMingwEnabled.get()) {
+            val winuiMingwMain by getting {
+                dependencies {
+                    skikoWinuiMingwDependencyNotations.forEach(::implementation)
+                }
             }
         }
     }
@@ -142,8 +149,6 @@ extensions.configure<io.github.composefluent.winrt.gradle.WinRTExtension>("winRT
         mainClass.set("SkiaWinUISample.MainKt")
         console.set(true)
         unpackaged()
-        packagePayload(skikoWinuiMingwRuntimePayloadDir.map { it.file("$skikoWinuiMingwRuntimeAssetPath/skiko_winui.dll") }, ".")
-        packagePayload(skikoWinuiMingwRuntimePayloadDir.map { it.file("$skikoWinuiMingwRuntimeAssetPath/skiko_winui_skia.dll") }, ".")
     }
     listOf(
         "Microsoft.UI.Dispatching.DispatcherQueue",
@@ -158,6 +163,9 @@ extensions.configure<io.github.composefluent.winrt.gradle.WinRTExtension>("winRT
         "Microsoft.UI.Xaml.FocusState",
         "Microsoft.UI.Xaml.FrameworkElement",
         "Microsoft.UI.Xaml.HorizontalAlignment",
+        "Microsoft.UI.Xaml.IApplicationOverrides",
+        "Microsoft.UI.Xaml.IFrameworkElementOverrides",
+        "Microsoft.UI.Xaml.IUIElementOverrides",
         "Microsoft.UI.Xaml.Input.CharacterReceivedRoutedEventArgs",
         "Microsoft.UI.Xaml.Input.KeyRoutedEventArgs",
         "Microsoft.UI.Xaml.Input.PointerRoutedEventArgs",
@@ -194,16 +202,48 @@ tasks.matching { it.name == "runWinRTApplicationHost" }.configureEach {
     description = "Runs the JVM WinUI Skiko sample through the generated native app host."
 }
 
+tasks.named<io.github.composefluent.winrt.gradle.BuildWinRTApplicationHostTask>("buildWinRTApplicationHost") {
+    val stageWinRTRuntimeAssets = tasks.named<io.github.composefluent.winrt.gradle.StageWinRTRuntimeAssetsTask>("stageWinRTRuntimeAssets")
+    runtimeAssetsDirectory.setFrom(stageWinRTRuntimeAssets.flatMap { it.outputDirectory })
+    dependsOn(stageWinRTRuntimeAssets)
+    runtimeClasspath.from(configurations.named("winuiJvmRuntimeClasspath"))
+    val winuiJvmJar = tasks.named<Jar>("winuiJvmJar")
+    dependsOn(winuiJvmJar)
+    runtimeClasspath.from(winuiJvmJar.flatMap { it.archiveFile })
+    if (skikoWinuiUseLocalProject.get()) {
+        dependsOn(gradle.includedBuild("skiko").task(":skikoWinuiWindowsRuntimeJar"))
+        runtimeClasspath.from(localSkikoBuildLibFiles("skiko-winui-windows"))
+    }
+}
+
+afterEvaluate {
+    tasks.named("buildWinRTApplicationHost").configure {
+        removeDependenciesNamed("stageWinRTApplicationPackage")
+    }
+    tasks.named("stageWinRTRuntimeAssets").configure {
+        removeDependenciesNamed(
+            "generateWinRTMingwApplicationEntry",
+            "generateCompileKotlinWinuiMingwWinRTCompilerAuthoredTypeDetails",
+            "validateCompileKotlinWinuiMingwWinRTAuthoredCandidates",
+            "validateCompileKotlinWinuiMingwWinRTNativeAuthoringExports",
+        )
+    }
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>().configureEach {
+        removeDependenciesNamed("generateWinRTMingwApplicationEntry")
+    }
+}
+
 tasks.register<Copy>("unpackSkikoWinuiMingwRuntime") {
     group = "build"
     description = "Unpacks skiko-winui-mingw-runtime.jar for WinRT application payload staging."
-    if (skikoWinuiUseLocalProject.get()) {
+    onlyIf { winuiMingwEnabled.get() }
+    if (winuiMingwEnabled.get() && skikoWinuiUseLocalProject.get()) {
         dependsOn(gradle.includedBuild("skiko").task(":skikoWinuiMingwRuntimeJar"))
     }
     val runtimeJar = if (skikoWinuiMingwRuntimeJarProvider.isPresent) {
         skikoWinuiMingwRuntimeJarProvider.map { files(it) }
     } else if (skikoWinuiUseLocalProject.get()) {
-        provider { files(layout.projectDirectory.file("../../skiko/build/libs/skiko-winui-mingw-runtime.jar")) }
+        localSkikoBuildLibFiles("skiko-winui-mingw-runtime")
     } else {
         provider { skikoWinuiMingwRuntimeFiles }
     }
@@ -220,7 +260,7 @@ tasks.register<Copy>("unpackSkikoWinuiWindowsRuntime") {
     val runtimeJar = if (skikoWinuiWindowsRuntimeJarProvider.isPresent) {
         skikoWinuiWindowsRuntimeJarProvider.map { files(it) }
     } else if (skikoWinuiUseLocalProject.get()) {
-        provider { files(layout.projectDirectory.file("../../skiko/build/libs/skiko-winui-windows.jar")) }
+        localSkikoBuildLibFiles("skiko-winui-windows")
     } else {
         provider { skikoWinuiWindowsRuntimeFiles }
     }
@@ -228,13 +268,10 @@ tasks.register<Copy>("unpackSkikoWinuiWindowsRuntime") {
     into(skikoWinuiWindowsRuntimePayloadDir)
 }
 
-tasks.matching { it.name == "stageWinRTRuntimeAssets" }.configureEach {
-    dependsOn("unpackSkikoWinuiMingwRuntime")
-}
-
 tasks.register("stageSkikoWinuiMingwRuntimeDlls") {
     group = "build"
     description = "Stages skiko-winui mingw runtime DLLs for local executable launch and WinRT app payload."
+    onlyIf { winuiMingwEnabled.get() }
     dependsOn("unpackSkikoWinuiMingwRuntime", "unpackSkikoWinuiWindowsRuntime", "stageWinRTRuntimeAssets")
     val runtimeDlls = listOf("skiko_winui.dll", "skiko_winui_skia.dll")
     val sourceFiles = runtimeDlls.map { name ->
@@ -294,6 +331,7 @@ tasks.matching { it.name == "runDebugExecutableWinuiMingw" }.configureEach {
 tasks.register("verifySkikoWinuiMingwSampleRuntime") {
     group = "verification"
     description = "Checks that the built winui-mingw sample executable and runtime files are staged."
+    onlyIf { winuiMingwEnabled.get() }
     dependsOn("linkDebugExecutableWinuiMingw", "stageSkikoWinuiMingwRuntimeDlls")
     doLast {
         val executableDir = winuiMingwDebugExecutableDir.get().asFile

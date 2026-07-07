@@ -3,6 +3,8 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import io.github.composefluent.winrt.gradle.KotlinWinRTPlugin
+import org.gradle.api.Task
+import org.gradle.api.tasks.TaskProvider
 import tasks.configuration.generateVersion
 import java.security.MessageDigest
 
@@ -31,10 +33,6 @@ buildscript {
 
 apply<KotlinWinRTPlugin>()
 
-val kotlinWinRTVersion = providers.gradleProperty("kotlinWinRT.version")
-    .orElse("0.1.0-SNAPSHOT")
-val kotlinWinRTGroup = providers.gradleProperty("kotlinWinRT.group")
-    .orElse("io.github.compose-fluent")
 val winuiWindowsAppSdkVersion = providers.gradleProperty("skiko.winui.windowsAppSdkVersion")
     .orElse("2.1.3")
 val winuiWindowsSdkVersion = providers.gradleProperty("skiko.winui.windowsSdkVersion")
@@ -48,10 +46,6 @@ val winuiMingwSkikoBridgeImportLib = layout.buildDirectory.file("native/winuiMin
 val winuiMingwSharedLibOutputDir = layout.buildDirectory.dir("bin/winuiMingw/releaseShared")
 val winuiMingwRuntimeResourceDir = layout.buildDirectory.dir("generated/winuiMingwRuntimeResources")
 val winuiMingwRuntimeResourcePath = "winui-mingw/windows-x64"
-val winuiGeneratedSourceDirs = listOf(
-    layout.buildDirectory.dir("generated/kotlin-winrt/src/commonMain/kotlin"),
-    layout.buildDirectory.dir("generated/kotlin-winrt-authoring/src/commonMain/kotlin"),
-)
 
 fun windowsSdkRootFromRegistry(): File? {
     val keys = listOf(
@@ -124,6 +118,18 @@ fun sha256(file: File): String {
     }
     return digest.digest().joinToString("") { "%02x".format(it) }
 }
+
+fun Task.removeDependenciesNamed(vararg taskNames: String) {
+    val names = taskNames.toSet()
+    setDependsOn(dependsOn.filterNot { dependency ->
+        when (dependency) {
+            is Task -> dependency.name in names
+            is TaskProvider<*> -> dependency.name in names
+            else -> names.any { name -> dependency.toString().contains(name) }
+        }
+    })
+}
+
 val skikoVersion = providers.gradleProperty("skiko.version")
     .orElse("0.0.0-SNAPSHOT")
 val winuiMingwEnabled = providers.gradleProperty("skiko.winui.mingw.enabled")
@@ -146,6 +152,9 @@ val kotlinWinRTAuthoringScannerRuntime = configurations.detachedConfiguration(
 val winuiProjectionTypes = listOf(
     "Microsoft.UI.Xaml.Application",
     "Microsoft.UI.Xaml.FrameworkElement",
+    "Microsoft.UI.Xaml.IApplicationOverrides",
+    "Microsoft.UI.Xaml.IFrameworkElementOverrides",
+    "Microsoft.UI.Xaml.IUIElementOverrides",
     "Microsoft.UI.Xaml.LaunchActivatedEventArgs",
     "Microsoft.UI.Xaml.RoutedEventArgs",
     "Microsoft.UI.Xaml.RoutedEventHandler",
@@ -163,6 +172,7 @@ val winuiProjectionTypes = listOf(
     "Microsoft.UI.Xaml.Automation.Peers.AutomationNavigationDirection",
     "Microsoft.UI.Xaml.Automation.Peers.AutomationOrientation",
     "Microsoft.UI.Xaml.Automation.Peers.AutomationPeer",
+    "Microsoft.UI.Xaml.Automation.Peers.IAutomationPeerOverrides",
     "Microsoft.UI.Xaml.Automation.Peers.AutomationStructureChangeType",
     "Microsoft.UI.Xaml.Automation.Peers.AccessibilityView",
     "Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer",
@@ -264,14 +274,6 @@ extensions.configure<KotlinMultiplatformExtension>("kotlin") {
     }
 
     sourceSets {
-        val winuiMain by creating {
-            winuiGeneratedSourceDirs.forEach { kotlin.srcDir(it) }
-            dependsOn(commonMain.get())
-            dependencies {
-                implementation("${kotlinWinRTGroup.get()}:winrt-runtime:${kotlinWinRTVersion.get()}")
-                implementation("${kotlinWinRTGroup.get()}:winrt-authoring:${kotlinWinRTVersion.get()}")
-            }
-        }
         named("jvmMain") {
             dependencies {
                 implementation(kotlin("stdlib"))
@@ -279,10 +281,8 @@ extensions.configure<KotlinMultiplatformExtension>("kotlin") {
             }
         }
         named("winuiJvmMain") {
-            dependsOn(winuiMain)
             dependencies {
                 implementation(kotlin("stdlib"))
-                implementation("${kotlinWinRTGroup.get()}:winrt-runtime-jvm:${kotlinWinRTVersion.get()}")
             }
         }
         named("winuiJvmTest") {
@@ -294,27 +294,11 @@ extensions.configure<KotlinMultiplatformExtension>("kotlin") {
             }
         }
         if (winuiMingwEnabled.get()) {
-            named("winuiMingwMain") {
-                dependsOn(winuiMain)
-            }
             named("winuiMingwTest") {
                 dependencies {
                     implementation(kotlin("test"))
                 }
             }
-        }
-    }
-}
-
-afterEvaluate {
-    extensions.configure<KotlinMultiplatformExtension>("kotlin") {
-        val generatedSourceRoots = winuiGeneratedSourceDirs.map { it.get().asFile.canonicalFile }.toSet()
-        sourceSets.named("commonMain") {
-            kotlin.setSrcDirs(
-                kotlin.srcDirs.filterNot { sourceDir ->
-                    sourceDir.canonicalFile in generatedSourceRoots
-                }
-            )
         }
     }
 }
@@ -444,27 +428,23 @@ tasks.named<io.github.composefluent.winrt.gradle.GenerateWinRTProjectionsTask>("
     )
 }
 
-tasks.matching {
-    it.name in setOf(
-        "compileCommonMainKotlinMetadata",
-        "compileWinuiMainKotlinMetadata",
-        "compileKotlinWinuiJvm",
-        "compileKotlinWinuiMingw",
+afterEvaluate {
+    val mingwOnlyTaskNames = arrayOf(
+        "generateCompileKotlinWinuiMingwWinRTCompilerAuthoredTypeDetails",
+        "validateCompileKotlinWinuiMingwWinRTAuthoredCandidates",
+        "validateCompileKotlinWinuiMingwWinRTNativeAuthoringExports",
+        "linkReleaseSharedWinuiMingw",
     )
-}.configureEach {
-    dependsOn("generateWinRTProjections")
-    dependsOn("mergeWinRTCompilerSupport")
-}
-
-tasks.matching {
-    it.name in setOf(
-        "sourcesJar",
-        "winuiJvmSourcesJar",
-        "winuiMingwSourcesJar",
-    )
-}.configureEach {
-    dependsOn("generateWinRTProjections")
-    dependsOn("mergeWinRTCompilerSupport")
+    listOf(
+        "generateWinRTIdentity",
+        "stageWinRTRuntimeAssets",
+        "stageWinRTApplicationPackage",
+        "buildWinRTApplicationHost",
+    ).forEach { taskName ->
+        tasks.matching { it.name == taskName }.configureEach {
+            removeDependenciesNamed(*mingwOnlyTaskNames)
+        }
+    }
 }
 
 apply(from = "gradle/winui-awt-free-boundary.gradle.kts")
