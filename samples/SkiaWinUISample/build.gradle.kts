@@ -60,8 +60,7 @@ val skikoWinuiWindowsRuntimePayloadDir = layout.buildDirectory.dir("skiko-winui-
 val skikoWinuiMingwRuntimeAssetPath = "winui-mingw/windows-x64"
 val winRTRuntimeAssetsDir = layout.buildDirectory.dir("kotlin-winrt/runtime-assets")
 val winuiMingwDebugExecutableDir = layout.buildDirectory.dir("bin/winuiMingw/debugExecutable")
-val sampleWindowsAppSdkVersion = providers.gradleProperty("skiko.winui.windowsAppSdkVersion")
-    .orElse("2.1.3")
+val sampleWindowsAppSdkVersion = "2.2.0"
 val sampleWindowsSdkVersion = providers.gradleProperty("skiko.winui.windowsSdkVersion")
     .orElse("10.0.26100.0")
 
@@ -142,7 +141,7 @@ kotlin {
 
 extensions.configure<io.github.composefluent.winrt.gradle.WinRTExtension>("winRT") {
     windowsSdk(sampleWindowsSdkVersion.get(), includeExtensions = false, generateProjection = true)
-    nugetPackage("Microsoft.WindowsAppSDK", sampleWindowsAppSdkVersion.get()) {
+    nugetPackage("Microsoft.WindowsAppSDK", sampleWindowsAppSdkVersion) {
         generateProjection = true
     }
     application {

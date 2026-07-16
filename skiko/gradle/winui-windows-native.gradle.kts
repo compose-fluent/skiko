@@ -4,8 +4,7 @@ import java.security.MessageDigest
 val isWindowsHost = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
 val winuiNativeVsPath = providers.gradleProperty("skiko.winui.vsPath")
     .orElse(providers.environmentVariable("SKIKO_VSBT_PATH"))
-val winuiNativeWindowsAppSdkVersion = providers.gradleProperty("skiko.winui.windowsAppSdkVersion")
-    .orElse("2.1.3")
+val winuiNativeWindowsAppSdkVersion = "2.2.0"
 val winuiNativeWindowsSdkVersion = providers.gradleProperty("skiko.winui.windowsSdkVersion")
     .orElse("10.0.26100.0")
 val winuiNativeWindowsSdkRoot = providers.gradleProperty("skiko.winui.windowsSdkRoot")
@@ -428,7 +427,7 @@ val resolveWinuiJvmNativeWindowsAppSdk by tasks.registering(Exec::class) {
             "install",
             "Microsoft.WindowsAppSDK",
             "-Version",
-            winuiNativeWindowsAppSdkVersion.get(),
+            winuiNativeWindowsAppSdkVersion,
             "-OutputDirectory",
             winuiJvmNativeNuGetInstallDir.get().asFile.absolutePath,
             "-NonInteractive",

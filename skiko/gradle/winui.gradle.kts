@@ -33,8 +33,7 @@ buildscript {
 
 apply<KotlinWinRTPlugin>()
 
-val winuiWindowsAppSdkVersion = providers.gradleProperty("skiko.winui.windowsAppSdkVersion")
-    .orElse("2.1.3")
+val winuiWindowsAppSdkVersion = "2.2.0"
 val winuiWindowsSdkVersion = providers.gradleProperty("skiko.winui.windowsSdkVersion")
     .orElse("10.0.26100.0")
 val winuiWindowsSdkRoot = providers.gradleProperty("skiko.winui.windowsSdkRoot")
@@ -216,7 +215,7 @@ repositories {
 
 extensions.configure<io.github.composefluent.winrt.gradle.WinRTExtension>("winRT") {
     windowsSdk(winuiWindowsSdkVersion.get(), includeExtensions = false, generateProjection = true)
-    nugetPackage("Microsoft.WindowsAppSDK", winuiWindowsAppSdkVersion.get()) {
+    nugetPackage("Microsoft.WindowsAppSDK", winuiWindowsAppSdkVersion) {
         generateProjection = true
     }
     namespace("Microsoft.UI.Windowing")
