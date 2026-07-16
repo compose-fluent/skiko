@@ -62,13 +62,18 @@ existing task boundary.
 Use the local composite plugin source:
 
 ```powershell
-.\gradlew.bat --include-build E:\Documents\AndroidStudioProjects\kotlin-winrt\winrt-gradle-plugin `
-  -Pskiko.winui.enabled=true -Pskiko.winui.mingw.enabled=false `
-  :skiko:compileKotlinWinuiJvm
+$env:JAVA_HOME = 'C:\Program Files\Microsoft\jdk-25.0.3.9-hotspot'
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
 
-.\gradlew.bat --include-build E:\Documents\AndroidStudioProjects\kotlin-winrt\winrt-gradle-plugin `
-  -Pskiko.winui.enabled=true -Pskiko.winui.mingw.enabled=true `
-  :skiko:compileKotlinWinuiMingw
+& .\gradlew.bat '--no-daemon' `
+  '--include-build' 'E:\Documents\AndroidStudioProjects\kotlin-winrt\winrt-gradle-plugin' `
+  '-Pskiko.winui.enabled=true' '-Pskiko.winui.mingw.enabled=false' `
+  ':skiko:compileKotlinWinuiJvm'
+
+& .\gradlew.bat '--no-daemon' `
+  '--include-build' 'E:\Documents\AndroidStudioProjects\kotlin-winrt\winrt-gradle-plugin' `
+  '-Pskiko.winui.enabled=true' '-Pskiko.winui.mingw.enabled=true' `
+  ':skiko:compileKotlinWinuiMingw'
 ```
 
 The JVM and Native runs must both succeed. The Native run must retain
@@ -76,6 +81,9 @@ The JVM and Native runs must both succeed. The Native run must retain
 `winuiMain`; the previous unresolved WinUI projection errors must be absent.
 
 The `kotlin-winrt` working tree must remain unchanged.
+
+The host requirement is JDK 25 or newer because the current kotlin-winrt
+Gradle plugin artifact targets JVM 25.
 
 ## Rollback
 
