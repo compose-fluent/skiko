@@ -214,6 +214,15 @@ repositories {
     google()
 }
 
+extensions.configure<io.github.composefluent.winrt.gradle.WinRTExtension>("winRT") {
+    windowsSdk(winuiWindowsSdkVersion.get(), includeExtensions = false, generateProjection = true)
+    nugetPackage("Microsoft.WindowsAppSDK", winuiWindowsAppSdkVersion.get()) {
+        generateProjection = true
+    }
+    namespace("Microsoft.UI.Windowing")
+    winuiProjectionTypes.forEach(::type)
+}
+
 extensions.configure<KotlinMultiplatformExtension>("kotlin") {
     jvmToolchain(winuiJvmToolchain.get().toInt())
 
@@ -301,15 +310,6 @@ extensions.configure<KotlinMultiplatformExtension>("kotlin") {
             }
         }
     }
-}
-
-extensions.configure<io.github.composefluent.winrt.gradle.WinRTExtension>("winRT") {
-    windowsSdk(winuiWindowsSdkVersion.get(), includeExtensions = false, generateProjection = true)
-    nugetPackage("Microsoft.WindowsAppSDK", winuiWindowsAppSdkVersion.get()) {
-        generateProjection = true
-    }
-    namespace("Microsoft.UI.Windowing")
-    winuiProjectionTypes.forEach(::type)
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
