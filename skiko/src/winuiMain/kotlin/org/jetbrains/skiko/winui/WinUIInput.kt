@@ -2,11 +2,54 @@ package org.jetbrains.skiko.winui
 
 interface WinUIInputHandler {
     fun onPointerEvent(event: WinUIPointerEvent): Boolean = false
+    fun onIndirectPointerEvent(event: WinUIIndirectPointerEvent): Boolean = false
+    fun onIndirectPointerCancel() {}
     fun onKeyEvent(event: WinUIKeyEvent): Boolean = false
     fun onTextInputEvent(event: WinUITextInputEvent): Boolean = false
     fun onTextCompositionEvent(event: WinUITextCompositionEvent): Boolean = false
     fun onFocusEvent(event: WinUIFocusEvent): Boolean = false
 }
+
+enum class WinUIIndirectPointerEventType {
+    PRESS,
+    MOVE,
+    RELEASE,
+}
+
+enum class WinUIIndirectPointerPrimaryDirectionalMotionAxis {
+    NONE,
+    X,
+    Y,
+}
+
+data class WinUIIndirectPointerDeviceRect(
+    val left: Int,
+    val top: Int,
+    val right: Int,
+    val bottom: Int,
+)
+
+data class WinUIIndirectPointerChange(
+    val pointerId: Long,
+    val timestampMillis: Long,
+    val x: Float,
+    val y: Float,
+    val pressed: Boolean,
+    val pressure: Float,
+    val previousTimestampMillis: Long,
+    val previousX: Float,
+    val previousY: Float,
+    val previousPressed: Boolean,
+)
+
+data class WinUIIndirectPointerEvent(
+    val type: WinUIIndirectPointerEventType,
+    val changes: List<WinUIIndirectPointerChange>,
+    val primaryDirectionalMotionAxis: WinUIIndirectPointerPrimaryDirectionalMotionAxis,
+    val deviceId: Long,
+    val deviceRect: WinUIIndirectPointerDeviceRect?,
+    val frameId: Long,
+)
 
 enum class WinUIPointerEventType {
     ENTERED,
