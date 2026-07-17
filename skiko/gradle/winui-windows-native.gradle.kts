@@ -16,6 +16,14 @@ val winuiSkikoWindowsDll = providers.gradleProperty("skiko.winui.windowsSkikoDll
 val winuiSkikoWindowsIcuData = providers.gradleProperty("skiko.winui.windowsIcuData")
 
 val winuiJvmNativeSource = layout.projectDirectory.file("src/winuiJvmMain/cpp/windows/winuiRedrawer.cc")
+val winuiIndirectPointerNativeHeader =
+    layout.projectDirectory.file("src/winuiMain/cpp/windows/winuiIndirectPointerInput.h")
+val winuiIndirectPointerNativeSource =
+    layout.projectDirectory.file("src/winuiMain/cpp/windows/winuiIndirectPointerInput.cc")
+val winuiIndirectPointerNativeTestSource =
+    layout.projectDirectory.file("src/winuiTest/cpp/windows/winuiIndirectPointerInputTest.cc")
+val winuiIndirectPointerNativeTestOutputDir =
+    layout.buildDirectory.dir("native/winuiIndirectPointerTest/windowsX64")
 val winuiJvmNativeOutputDir = layout.buildDirectory.dir("native/winuiJvm/windowsX64")
 val winuiJvmNativeNuGetInstallDir = layout.buildDirectory.dir("tmp/compileWinuiJvmNativeWindowsX64/nuget-install")
 val winuiJvmNativeResourceDir = layout.buildDirectory.dir("generated/winuiJvmNativeResources")
@@ -435,6 +443,79 @@ val resolveWinuiJvmNativeWindowsAppSdk by tasks.registering(Exec::class) {
             "-DependencyVersion",
             "Highest",
         )
+    }
+}
+
+tasks.register("runWinuiIndirectPointerNativeTests") {
+    group = "verification"
+    description = "Builds and runs the synthetic WinUI indirect pointer parser/state tests."
+
+    inputs.files(
+        winuiIndirectPointerNativeHeader,
+        winuiIndirectPointerNativeSource,
+        winuiIndirectPointerNativeTestSource,
+    )
+    outputs.upToDateWhen { false }
+    onlyIf { isWindowsHost }
+
+    doLast {
+        val outputDir = winuiIndirectPointerNativeTestOutputDir.get().asFile
+        val outputExe = outputDir.resolve("winuiIndirectPointerInputTest.exe")
+        val outputObj = outputDir.resolve("winuiIndirectPointerInputTest.obj")
+        val coreObj = outputDir.resolve("winuiIndirectPointerInput.obj")
+        val compileLog = outputDir.resolve("compile.log")
+        val batchFile = outputDir.resolve("compile.cmd")
+        val vcvars64 = vcvars64Bat()
+        outputDir.mkdirs()
+
+        batchFile.writeText(
+            buildString {
+                appendLine("@echo off")
+                appendLine("setlocal")
+                appendLine("call ${vcvars64.toResponseFilePath()} >nul || exit /b 1")
+                appendLine(
+                    "cl.exe /nologo /std:c++20 /EHsc /W4 /utf-8 " +
+                        "/DWIN32_LEAN_AND_MEAN /DNOMINMAX " +
+                        "/I${winuiIndirectPointerNativeHeader.asFile.parentFile.toResponseFilePath()} " +
+                        "/Fo${coreObj.toResponseFilePath()} /c " +
+                        winuiIndirectPointerNativeSource.asFile.toResponseFilePath() +
+                        " || exit /b 1"
+                )
+                appendLine(
+                    "cl.exe /nologo /std:c++20 /EHsc /W4 /utf-8 " +
+                        "/DWIN32_LEAN_AND_MEAN /DNOMINMAX " +
+                        "/I${winuiIndirectPointerNativeHeader.asFile.parentFile.toResponseFilePath()} " +
+                        "/Fo${outputObj.toResponseFilePath()} /c " +
+                        winuiIndirectPointerNativeTestSource.asFile.toResponseFilePath() +
+                        " || exit /b 1"
+                )
+                appendLine(
+                    "link.exe /NOLOGO /OUT:${outputExe.toResponseFilePath()} " +
+                        "${coreObj.toResponseFilePath()} ${outputObj.toResponseFilePath()} " +
+                        "User32.lib Comctl32.lib Ole32.lib || exit /b 1"
+                )
+            }
+        )
+
+        val compileExitCode = ProcessBuilder(
+            "cmd.exe",
+            "/d",
+            "/s",
+            "/c",
+            "\"${batchFile.absolutePath}\"",
+        )
+            .redirectErrorStream(true)
+            .redirectOutput(compileLog)
+            .start()
+            .waitFor()
+        if (compileExitCode != 0) {
+            throw GradleException(
+                "WinUI indirect pointer native test compilation failed with exit code " +
+                    "$compileExitCode.\n${compileLog.readText()}"
+            )
+        }
+
+        runWinuiProcess(listOf(outputExe.absolutePath), workingDir = outputDir)
     }
 }
 
