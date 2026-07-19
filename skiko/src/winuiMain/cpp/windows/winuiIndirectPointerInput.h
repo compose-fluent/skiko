@@ -8,7 +8,11 @@
 #endif
 
 #include <Windows.h>
+#include <CommCtrl.h>
 #include <stdint.h>
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -128,6 +132,7 @@ struct Event {
     uint64_t device_id;
     std::optional<DeviceRect> device_rect;
     uint64_t frame_id;
+    uint64_t raw_timestamp;
 };
 
 struct ProcessResult {
@@ -177,6 +182,51 @@ private:
     ProcessResult malformed_result();
     int64_t timestamp_millis(const POINTER_INFO& pointer_info);
 };
+
+using RegisterTouchpadCapableWindowFunction = BOOL (WINAPI*)(HWND, BOOL);
+using GetPointerFrameTouchpadInfoHistoryFunction = BOOL (WINAPI*)(
+    uint32_t,
+    uint32_t*,
+    uint32_t*,
+    POINTER_TOUCH_INFO*
+);
+using GetPointerTypeFunction = BOOL (WINAPI*)(uint32_t, POINTER_INPUT_TYPE*);
+using GetPointerDeviceRectsFunction = BOOL (WINAPI*)(HANDLE, RECT*, RECT*);
+using SetWindowSubclassFunction = BOOL (WINAPI*)(HWND, SUBCLASSPROC, UINT_PTR, DWORD_PTR);
+using RemoveWindowSubclassFunction = BOOL (WINAPI*)(HWND, SUBCLASSPROC, UINT_PTR);
+using DefSubclassProcFunction = LRESULT (WINAPI*)(HWND, UINT, WPARAM, LPARAM);
+
+struct NativeApiTable {
+    RegisterTouchpadCapableWindowFunction register_touchpad_capable_window = nullptr;
+    GetPointerFrameTouchpadInfoHistoryFunction get_pointer_frame_touchpad_info_history = nullptr;
+    GetPointerTypeFunction get_pointer_type = nullptr;
+    GetPointerDeviceRectsFunction get_pointer_device_rects = nullptr;
+    SetWindowSubclassFunction set_window_subclass = nullptr;
+    RemoveWindowSubclassFunction remove_window_subclass = nullptr;
+    DefSubclassProcFunction def_subclass_proc = nullptr;
+};
+
+class Binding;
+
+Binding* create_binding_for_test(
+    HWND hwnd,
+    const NativeApiTable& api,
+    void* context,
+    SkikoWinUIIndirectPointerEventCallback event_callback,
+    SkikoWinUIIndirectPointerCancelCallback cancel_callback,
+    int32_t* unavailable_reason
+);
+
+LRESULT dispatch_message_for_test(
+    Binding* binding,
+    UINT message,
+    WPARAM w_param,
+    LPARAM l_param
+);
+
+bool cancel_binding_for_test(Binding* binding);
+bool close_binding_for_test(Binding* binding);
+void destroy_binding_for_test(Binding* binding);
 
 }  // namespace skiko::winui::indirect
 #endif

@@ -160,6 +160,20 @@ fun defaultKonanLlvmDir(): File? =
         ?.resolve("bin")
         ?.takeIf { it.resolve("clang++.exe").isFile && it.resolve("llvm-ar.exe").isFile }
 
+fun mingwCppIncludeDirs(sysroot: File): List<File> {
+    val versionDir = sysroot.parentFile
+        .resolve("include/c++")
+        .listFiles()
+        ?.filter(File::isDirectory)
+        ?.maxByOrNull(File::getName)
+        ?: throw GradleException("MinGW C++ standard-library headers were not found for '$sysroot'.")
+    return listOf(
+        versionDir,
+        versionDir.resolve("x86_64-w64-mingw32"),
+        versionDir.resolve("backward"),
+    ).filter(File::isDirectory)
+}
+
 fun skikoWinuiMainSources(): List<File> {
     val sourceRoots = listOf(
         skikoProjectFile("src/commonMain/cpp/common"),
@@ -524,22 +538,28 @@ tasks.register<Exec>("compileWinuiJvmNativeWindowsX64") {
     description = "Compiles the skiko-winui JVM Windows native helper without using Skiko AWT native sources."
     dependsOn(resolveWinuiJvmNativeWindowsAppSdk)
 
-    inputs.file(winuiJvmNativeSource)
+    val nativeSources = listOf(
+        winuiJvmNativeSource.asFile,
+        winuiIndirectPointerNativeSource.asFile,
+    )
+    inputs.files(nativeSources)
+    inputs.file(winuiIndirectPointerNativeHeader)
     outputs.file(winuiJvmNativeOutputDir.map { it.file("skiko-winui.dll") })
 
     onlyIf {
-        val source = winuiJvmNativeSource.asFile
         val output = winuiJvmNativeOutputDir.get().asFile.resolve("skiko-winui.dll")
-        isWindowsHost && (!output.isFile || source.lastModified() > output.lastModified())
+        isWindowsHost && (
+            !output.isFile ||
+                nativeSources.any { source -> source.lastModified() > output.lastModified() } ||
+                winuiIndirectPointerNativeHeader.asFile.lastModified() > output.lastModified()
+            )
     }
 
     doFirst {
         val jdkHome = File(System.getProperty("java.home"))
         val outputDir = winuiJvmNativeOutputDir.get().asFile
         val outputDll = outputDir.resolve("skiko-winui.dll")
-        val outputObj = outputDir.resolve("winuiRedrawer.obj")
         val outputLib = outputDir.resolve("skiko-winui.lib")
-        val source = winuiJvmNativeSource.asFile
         val vcvars64 = vcvars64Bat()
         val winuiDxInteropHeader = fileTree(winuiJvmNativeNuGetInstallDir.get().asFile) {
             include("**/include/microsoft.ui.xaml.media.dxinterop.h")
@@ -548,30 +568,47 @@ tasks.register<Exec>("compileWinuiJvmNativeWindowsX64") {
         val winuiIncludeDir = winuiDxInteropHeader.parentFile
 
         outputDir.mkdirs()
-        val clCommand = listOf(
-            "cl.exe",
-            "/nologo",
-            "/LD",
-            "/std:c++20",
-            "/EHsc",
-            "/utf-8",
-            "/DSK_DIRECT3D",
-            "/I\"${jdkHome.resolve("include")}\"",
-            "/I\"${jdkHome.resolve("include/win32")}\"",
-            "/I\"$winuiIncludeDir\"",
-            "/Fo\"$outputObj\"",
-            "/Fe\"$outputDll\"",
-            "\"$source\"",
-            "/link",
+        val objectFiles = nativeSources.map { source ->
+            outputDir.resolve("${source.nameWithoutExtension}.obj")
+        }
+        val compileCommands = nativeSources.zip(objectFiles).map { (source, objectFile) ->
+            listOf(
+                "cl.exe",
+                "/nologo",
+                "/c",
+                "/std:c++20",
+                "/EHsc",
+                "/utf-8",
+                "/DSK_DIRECT3D",
+                "/I\"${jdkHome.resolve("include")}\"",
+                "/I\"${jdkHome.resolve("include/win32")}\"",
+                "/I\"$winuiIncludeDir\"",
+                "/I\"${winuiIndirectPointerNativeHeader.asFile.parentFile}\"",
+                "/Fo\"$objectFile\"",
+                "\"$source\"",
+            ).joinToString(" ")
+        }
+        val linkCommand = listOf(
+            "link.exe",
             "/NOLOGO",
+            "/DLL",
+            "/OUT:\"$outputDll\"",
             "/IMPLIB:\"$outputLib\"",
-            "d3d12.lib",
-            "dxgi.lib",
+        ).plus(objectFiles.map { "\"$it\"" }).plus(
+            listOf(
+                "d3d12.lib",
+                "dxgi.lib",
+                "user32.lib",
+                "comctl32.lib",
+                "ole32.lib",
+            )
         ).joinToString(" ")
         commandLine(
             "cmd.exe",
             "/c",
-            "call \"$vcvars64\" >nul && $clCommand"
+            "call \"$vcvars64\" >nul && " +
+                compileCommands.joinToString(" && ") +
+                " && $linkCommand"
         )
     }
 }
@@ -601,7 +638,12 @@ val compileWinuiMingwNativeWindowsX64 by tasks.registering {
     description = "Compiles the skiko-winui Kotlin/Native mingwX64 Direct3D bridge as a static archive."
     dependsOn(resolveWinuiJvmNativeWindowsAppSdk)
 
-    inputs.file(winuiJvmNativeSource)
+    val nativeSources = listOf(
+        winuiJvmNativeSource.asFile,
+        winuiIndirectPointerNativeSource.asFile,
+    )
+    inputs.files(nativeSources)
+    inputs.file(winuiIndirectPointerNativeHeader)
     inputs.property("windowsSdkVersion", winuiNativeWindowsSdkVersion)
     inputs.property("mingwLlvmDir", winuiMingwLlvmDir.orNull ?: "")
     inputs.property("mingwSysroot", winuiMingwSysroot.orNull ?: "")
@@ -633,6 +675,7 @@ val compileWinuiMingwNativeWindowsX64 by tasks.registering {
 
         val windowsSdkVersion = winuiNativeWindowsSdkVersion.get()
         val windowsSdkIncludes = windowsSdkIncludeDirs(windowsSdkVersion)
+        val mingwCppIncludes = mingwCppIncludeDirs(sysroot)
         val missingWindowsIncludes = windowsSdkIncludes.filterNot(File::isDirectory)
         if (missingWindowsIncludes.isNotEmpty()) {
             throw GradleException(
@@ -649,37 +692,45 @@ val compileWinuiMingwNativeWindowsX64 by tasks.registering {
 
         val outputDir = winuiMingwNativeOutputDir.get().asFile
         val objectsDir = winuiMingwNativeObjectsDir.get().asFile
-        val objectFile = objectsDir.resolve("winuiRedrawer.o")
+        val objectFiles = nativeSources.map { source ->
+            objectsDir.resolve("${source.nameWithoutExtension}.o")
+        }
         val archiveFile = winuiMingwNativeArchive.get().asFile
         outputDir.mkdirs()
         objectsDir.mkdirs()
 
-        runWinuiProcess(
-            listOf(
-                clang.absolutePath,
-                "-target",
-                "x86_64-w64-windows-gnu",
-                "--sysroot=${sysroot.absolutePath}",
-                "-c",
-                "-std=c++20",
-                "-O2",
-                "-fno-exceptions",
-                "-fno-rtti",
-                "-DSK_DIRECT3D",
-                "-DSKIKO_WINUI_MINGW",
-                "-DCOM_NO_WINDOWS_H",
-                "-DWIN32_LEAN_AND_MEAN",
-                "-DNOMINMAX",
-                "-I${winuiIncludeDir.absolutePath}",
-            ) +
-                windowsSdkIncludes.flatMap { listOf("-idirafter", it.absolutePath) } +
+        nativeSources.zip(objectFiles).forEach { (source, objectFile) ->
+            runWinuiProcess(
                 listOf(
-                "-I${sysroot.resolve("include").absolutePath}",
-                "-o",
-                objectFile.absolutePath,
-                winuiJvmNativeSource.asFile.absolutePath,
+                    clang.absolutePath,
+                    "-target",
+                    "x86_64-w64-windows-gnu",
+                    "--sysroot=${sysroot.absolutePath}",
+                    "-c",
+                    "-std=c++20",
+                    "-O2",
+                    "-fno-exceptions",
+                    "-fno-rtti",
+                    "-DSK_DIRECT3D",
+                    "-DSKIKO_WINUI_MINGW",
+                    "-DCOM_NO_WINDOWS_H",
+                    "-DWINVER=0x0A00",
+                    "-D_WIN32_WINNT=0x0A00",
+                    "-DWIN32_LEAN_AND_MEAN",
+                    "-DNOMINMAX",
+                    "-I${winuiIncludeDir.absolutePath}",
+                    "-I${winuiIndirectPointerNativeHeader.asFile.parentFile.absolutePath}",
+                ) +
+                    mingwCppIncludes.flatMap { listOf("-isystem", it.absolutePath) } +
+                    windowsSdkIncludes.flatMap { listOf("-idirafter", it.absolutePath) } +
+                    listOf(
+                        "-I${sysroot.resolve("include").absolutePath}",
+                        "-o",
+                        objectFile.absolutePath,
+                        source.absolutePath,
+                    )
             )
-        )
+        }
 
         if (archiveFile.isFile) {
             archiveFile.delete()
@@ -689,8 +740,7 @@ val compileWinuiMingwNativeWindowsX64 by tasks.registering {
                 ar.absolutePath,
                 "crs",
                 archiveFile.absolutePath,
-                objectFile.absolutePath,
-            )
+            ) + objectFiles.map(File::getAbsolutePath)
         )
     }
 }

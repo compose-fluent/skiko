@@ -85,7 +85,14 @@ fun windowsSdkLibDir(version: String): File =
 
 fun windowsSdkSystemLibFiles(version: String): List<File> {
     val libDir = windowsSdkLibDir(version)
-    val requiredLibs = listOf("d3d12.lib", "dxgi.lib", "dxguid.lib")
+    val requiredLibs = listOf(
+        "d3d12.lib",
+        "dxgi.lib",
+        "dxguid.lib",
+        "user32.lib",
+        "comctl32.lib",
+        "ole32.lib",
+    )
     val missingLibs = requiredLibs
         .map { libDir.resolve(it) }
         .filterNot(File::isFile)
