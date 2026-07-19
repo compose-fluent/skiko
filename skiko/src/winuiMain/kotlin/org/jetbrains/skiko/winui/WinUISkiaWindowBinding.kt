@@ -10,6 +10,7 @@ class WinUISkiaWindowBinding internal constructor(
     val layer: WinUISkiaLayerSurface,
     private val previousContent: UIElement?,
     private val closeLayerOnWindowClosed: Boolean,
+    private var indirectPointerInputBinding: WinUIIndirectPointerInputBinding? = null,
 ) : AutoCloseable {
     private var closedToken: EventRegistrationToken? = null
     private var frameScheduler: WinUIFrameScheduler? = null
@@ -27,6 +28,8 @@ class WinUISkiaWindowBinding internal constructor(
         if (isClosed) {
             return
         }
+        indirectPointerInputBinding?.close()
+        indirectPointerInputBinding = null
         isClosed = true
         closedToken?.let(window.closed::remove)
         closedToken = null
@@ -74,6 +77,7 @@ fun Window.hostWinUISkiaLayer(
     width: Double? = null,
     height: Double? = null,
     closeLayerOnWindowClosed: Boolean = true,
+    enableIndirectPointerInput: Boolean = false,
 ): WinUISkiaWindowBinding {
     val component = layer.component
     val frameworkElement: FrameworkElement = component
@@ -85,11 +89,17 @@ fun Window.hostWinUISkiaLayer(
         frameworkElement.height = height
     }
     content = component
+    val indirectPointerInputBinding = if (enableIndirectPointerInput) {
+        bindWinUIIndirectPointerInput(layer)
+    } else {
+        null
+    }
     return WinUISkiaWindowBinding(
         window = this,
         layer = layer,
         previousContent = previousContent,
         closeLayerOnWindowClosed = closeLayerOnWindowClosed,
+        indirectPointerInputBinding = indirectPointerInputBinding,
     ).also { binding ->
         binding.bindClosedEvent()
     }

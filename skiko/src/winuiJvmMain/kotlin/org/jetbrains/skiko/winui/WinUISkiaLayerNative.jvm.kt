@@ -5,7 +5,7 @@ import java.nio.file.Files
 
 internal actual val WinUINullPointer: WinUINativePointer = 0L
 
-internal object WinUISkiaLayerNative : WinUIDirect3DRenderBridge {
+internal object WinUINativeLibrary {
     private var isLoaded = false
 
     @Synchronized
@@ -13,7 +13,6 @@ internal object WinUISkiaLayerNative : WinUIDirect3DRenderBridge {
         if (isLoaded) {
             return
         }
-        Library.staticLoad()
         val explicitPath = System.getProperty("skiko.winui.native.library.path")
         if (explicitPath != null) {
             System.load(explicitPath)
@@ -24,7 +23,7 @@ internal object WinUISkiaLayerNative : WinUIDirect3DRenderBridge {
     }
 
     private fun loadFromResource(): Boolean {
-        val resource = WinUISkiaLayerNative::class.java.getResourceAsStream(NATIVE_LIBRARY_RESOURCE)
+        val resource = WinUINativeLibrary::class.java.getResourceAsStream(NATIVE_LIBRARY_RESOURCE)
             ?: return false
         resource.use { input ->
             val directory = Files.createTempDirectory(NATIVE_LIBRARY_NAME)
@@ -41,6 +40,20 @@ internal object WinUISkiaLayerNative : WinUIDirect3DRenderBridge {
     private const val NATIVE_LIBRARY_FILE = "$NATIVE_LIBRARY_NAME.dll"
     private const val NATIVE_LIBRARY_RESOURCE =
         "/org/jetbrains/skiko/winui/native/windows-x64/$NATIVE_LIBRARY_FILE"
+}
+
+internal object WinUISkiaLayerNative : WinUIDirect3DRenderBridge {
+    private var isLoaded = false
+
+    @Synchronized
+    fun ensureLoaded() {
+        if (isLoaded) {
+            return
+        }
+        Library.staticLoad()
+        WinUINativeLibrary.ensureLoaded()
+        isLoaded = true
+    }
 
     override external fun chooseAdapter(adapterPriority: Int): WinUINativePointer
 

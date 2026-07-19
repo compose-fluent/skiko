@@ -20,6 +20,9 @@ namespace {
         int def_subclass_calls = 0;
         int event_calls = 0;
         int cancel_calls = 0;
+        bool close_during_event = false;
+        bool close_during_event_result = true;
+        skiko::winui::indirect::Binding* binding = nullptr;
         std::vector<POINTER_TOUCH_INFO> history;
         uint32_t entries_count = 0;
         uint32_t pointer_count = 0;
@@ -92,6 +95,10 @@ namespace {
         assert(event->change_count > 0);
         assert(event->primary_directional_motion_axis ==
             SKIKO_WINUI_INDIRECT_POINTER_AXIS_NONE);
+        if (runtime->close_during_event) {
+            runtime->close_during_event_result =
+                skiko::winui::indirect::close_binding_for_test(runtime->binding);
+        }
         return runtime->event_result;
     }
 
@@ -443,6 +450,39 @@ namespace {
         assert(failed_runtime.def_subclass_calls == 1);
         destroy_binding_for_test(binding);
     }
+
+    void rejectsCloseWhileDispatchingACallback() {
+        using namespace skiko::winui::indirect;
+        FakeRuntime runtime;
+        runtime.history = {
+            touch(1, 1, POINTER_FLAG_DOWN | POINTER_FLAG_INCONTACT | POINTER_FLAG_NEW,
+                10, 20, 0, TOUCH_MASK_NONE, 1, 1),
+        };
+        runtime.entries_count = 1;
+        runtime.pointer_count = 1;
+        runtime.close_during_event = true;
+        active_runtime = &runtime;
+        int32_t reason = 0;
+        runtime.binding = create_binding_for_test(
+            reinterpret_cast<HWND>(9),
+            fake_api(),
+            &runtime,
+            on_fake_event,
+            on_fake_cancel,
+            &reason
+        );
+
+        dispatch_message_for_test(
+            runtime.binding,
+            WM_POINTERDOWN,
+            MAKEWPARAM(1, 0),
+            0
+        );
+
+        assert(!runtime.close_during_event_result);
+        assert(runtime.remove_subclass_calls == 0);
+        destroy_binding_for_test(runtime.binding);
+    }
 }
 
 int main() {
@@ -454,6 +494,7 @@ int main() {
     reportsCapabilityFailuresAndExclusiveOwnership();
     preservesFallbackAndCachedConsumption();
     cancelsActiveStreamsAndContainsCallbackFailures();
+    rejectsCloseWhileDispatchingACallback();
     puts("winui indirect pointer native tests passed");
     return 0;
 }

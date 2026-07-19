@@ -435,6 +435,7 @@ private:
     bool registration_active_ = false;
     bool registered_in_process_ = false;
     bool closed_ = false;
+    uint32_t callback_depth_ = 0;
     std::vector<FrameDecision> frame_decisions_;
 
     bool is_owner_thread() const;
@@ -448,6 +449,7 @@ private:
         uint64_t timestamp
     ) const;
     void cache_consumption(const Event& event, bool consumed);
+    void notify_cancel();
     void clear_stream(bool notify);
     void on_window_destroyed();
 };
@@ -591,7 +593,7 @@ LRESULT Binding::dispatch(UINT message, WPARAM w_param, LPARAM l_param) {
 }
 
 bool Binding::cancel() {
-    if (!is_owner_thread()) {
+    if (!is_owner_thread() || callback_depth_ != 0) {
         return false;
     }
     clear_stream(true);
@@ -599,7 +601,7 @@ bool Binding::cancel() {
 }
 
 bool Binding::close() {
-    if (!is_owner_thread()) {
+    if (!is_owner_thread() || callback_depth_ != 0) {
         return false;
     }
     if (closed_) {
@@ -711,7 +713,7 @@ bool Binding::dispatch_history(const HistoryPayload& payload) {
     if (process_result.malformed) {
         frame_decisions_.clear();
         if (process_result.cancelled && cancel_callback_ != nullptr) {
-            cancel_callback_(context_);
+            notify_cancel();
         }
         return consumed;
     }
@@ -746,14 +748,17 @@ bool Binding::dispatch_history(const HistoryPayload& payload) {
             event.device_rect.has_value() ? event.device_rect->bottom : 0,
             event.frame_id,
         };
-        const int32_t callback_result = event_callback_ != nullptr
-            ? event_callback_(context_, &event_view)
-            : SKIKO_WINUI_INDIRECT_POINTER_CALLBACK_UNCONSUMED;
+        int32_t callback_result = SKIKO_WINUI_INDIRECT_POINTER_CALLBACK_UNCONSUMED;
+        if (event_callback_ != nullptr) {
+            ++callback_depth_;
+            callback_result = event_callback_(context_, &event_view);
+            --callback_depth_;
+        }
         if (callback_result == SKIKO_WINUI_INDIRECT_POINTER_CALLBACK_FAILED) {
             processor_.cancel();
             frame_decisions_.clear();
             if (cancel_callback_ != nullptr) {
-                cancel_callback_(context_);
+                notify_cancel();
             }
             return consumed;
         }
@@ -808,11 +813,20 @@ void Binding::cache_consumption(const Event& event, bool consumed) {
     }
 }
 
+void Binding::notify_cancel() {
+    if (cancel_callback_ == nullptr) {
+        return;
+    }
+    ++callback_depth_;
+    cancel_callback_(context_);
+    --callback_depth_;
+}
+
 void Binding::clear_stream(bool notify) {
     const bool had_active_stream = processor_.cancel();
     frame_decisions_.clear();
     if (notify && had_active_stream && cancel_callback_ != nullptr) {
-        cancel_callback_(context_);
+        notify_cancel();
     }
 }
 

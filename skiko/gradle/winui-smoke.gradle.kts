@@ -49,6 +49,7 @@ val isWindowsHost = System.getProperty("os.name").startsWith("Windows", ignoreCa
 
 tasks.named<Test>("winuiJvmTest") {
     failOnNoDiscoveredTests.set(false)
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
 
 tasks.register<JavaExec>("runWinuiJvmSmoke") {

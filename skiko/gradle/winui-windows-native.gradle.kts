@@ -16,6 +16,8 @@ val winuiSkikoWindowsDll = providers.gradleProperty("skiko.winui.windowsSkikoDll
 val winuiSkikoWindowsIcuData = providers.gradleProperty("skiko.winui.windowsIcuData")
 
 val winuiJvmNativeSource = layout.projectDirectory.file("src/winuiJvmMain/cpp/windows/winuiRedrawer.cc")
+val winuiIndirectPointerJvmNativeSource =
+    layout.projectDirectory.file("src/winuiJvmMain/cpp/windows/winuiIndirectPointerInputJni.cc")
 val winuiIndirectPointerNativeHeader =
     layout.projectDirectory.file("src/winuiMain/cpp/windows/winuiIndirectPointerInput.h")
 val winuiIndirectPointerNativeSource =
@@ -540,6 +542,7 @@ tasks.register<Exec>("compileWinuiJvmNativeWindowsX64") {
 
     val nativeSources = listOf(
         winuiJvmNativeSource.asFile,
+        winuiIndirectPointerJvmNativeSource.asFile,
         winuiIndirectPointerNativeSource.asFile,
     )
     inputs.files(nativeSources)
