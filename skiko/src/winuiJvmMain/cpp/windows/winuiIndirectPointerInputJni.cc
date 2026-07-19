@@ -343,46 +343,11 @@ extern "C" {
             destroy_callback_context(env, &context);
             return SKIKO_WINUI_INDIRECT_POINTER_CALLBACK_FAILED;
         }
-        const SkikoWinUIIndirectPointerChangeView changes[] = {
-            {
-                7,
-                12,
-                1450.0f,
-                320.0f,
-                1,
-                0.5f,
-                11,
-                1400.0f,
-                300.0f,
-                1,
-            },
-            {
-                8,
-                13,
-                2100.0f,
-                640.0f,
-                0,
-                0.0f,
-                12,
-                2050.0f,
-                600.0f,
-                1,
-            },
-        };
-        const SkikoWinUIIndirectPointerEventView event{
-            SKIKO_WINUI_INDIRECT_POINTER_MOVE,
-            changes,
-            2,
-            SKIKO_WINUI_INDIRECT_POINTER_AXIS_Y,
-            99,
-            1,
-            -10,
-            20,
-            12000,
-            7000,
-            42,
-        };
-        const int32_t result = invoke_event_callback(&context, &event);
+        const int32_t result = skiko_winui_indirect_pointer_emit_smoke(
+            &context,
+            invoke_event_callback,
+            invoke_cancel_callback
+        );
         destroy_callback_context(env, &context);
         return static_cast<jint>(result);
     }

@@ -35,6 +35,9 @@ val winuiMingwNativeObjectsDir = winuiMingwNativeOutputDir.map { it.dir("obj") }
 val winuiMingwNativeArchive = winuiMingwNativeOutputDir.map { it.file("skiko-winui-mingw-windows-x64.a") }
 val winuiMingwLlvmDir = providers.gradleProperty("skiko.winui.mingw.llvmDir")
 val winuiMingwSysroot = providers.gradleProperty("skiko.winui.mingw.sysroot")
+val winuiIncludeTestHelpers = providers.gradleProperty("deploy.release")
+    .map { it != "true" }
+    .orElse(true)
 val winuiMingwSkikoNativeOutputDir = layout.buildDirectory.dir("native/winuiMingwSkiko/windowsX64")
 val winuiMingwSkikoNativeObjectsDir = winuiMingwSkikoNativeOutputDir.map { it.dir("obj") }
 val winuiMingwSkikoNativeDllFile = winuiMingwSkikoNativeOutputDir.map { it.file("skiko_winui_skia.dll") }
@@ -269,7 +272,11 @@ fun skikoWinuiNativeSourcesForMingwBridge(): List<File> {
     val sourceRoots = listOf(
         skikoProjectFile("src/commonMain/cpp/common"),
         skikoProjectFile("src/nativeJsMain/cpp"),
-    )
+    ) + if (winuiIncludeTestHelpers.get()) {
+        listOf(skikoProjectFile("src/nativeJsTest/cpp"))
+    } else {
+        emptyList()
+    }
     val excluded = setOf(
         "render.cc",
     )

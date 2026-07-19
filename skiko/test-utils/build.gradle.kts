@@ -18,6 +18,11 @@ if (supportAndroid) {
 }
 
 repositories {
+    maven("https://central.sonatype.com/repository/maven-snapshots/") {
+        mavenContent {
+            snapshotsOnly()
+        }
+    }
     mavenCentral()
     google()
 }
@@ -68,6 +73,16 @@ kotlin {
     if (supportNativeLinux) {
         linuxX64()
         linuxArm64()
+    }
+    if (
+        providers.gradleProperty("skiko.winui.enabled")
+            .map(String::toBoolean)
+            .getOrElse(false) &&
+        providers.gradleProperty("skiko.winui.mingw.enabled")
+            .map(String::toBoolean)
+            .getOrElse(true)
+    ) {
+        mingwX64("winuiMingw")
     }
     if (supportNativeIosArm64) {
         iosArm64()

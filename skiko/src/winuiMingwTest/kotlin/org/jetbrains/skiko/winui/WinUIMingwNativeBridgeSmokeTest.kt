@@ -1,6 +1,7 @@
 package org.jetbrains.skiko.winui
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
@@ -59,4 +60,76 @@ class WinUIMingwNativeBridgeSmokeTest {
             message = "Expected skiko-winui mingw bridge failure to include native diagnostic detail.",
         )
     }
+
+    @Test
+    fun preservesIndirectPointerFieldsThroughNativeCallback() {
+        var delivered: WinUIIndirectPointerEvent? = null
+        val result = emitWinUIIndirectPointerInputNativeSmoke(
+            object : WinUIIndirectPointerInputNativeCallback {
+                override fun onEvent(event: WinUIIndirectPointerEvent): Boolean {
+                    delivered = event
+                    return true
+                }
+
+                override fun onCancel() = Unit
+            },
+        )
+
+        assertEquals(1, result)
+        assertEquals(sampleIndirectPointerEvent(), delivered)
+    }
+
+    @Test
+    fun containsIndirectPointerCallbackFailuresAndCancels() {
+        var cancelCalls = 0
+        val result = emitWinUIIndirectPointerInputNativeSmoke(
+            object : WinUIIndirectPointerInputNativeCallback {
+                override fun onEvent(event: WinUIIndirectPointerEvent): Boolean {
+                    error("expected mingw callback failure")
+                }
+
+                override fun onCancel() {
+                    cancelCalls++
+                }
+            },
+        )
+
+        assertEquals(-1, result)
+        assertEquals(1, cancelCalls)
+    }
+
+    private fun sampleIndirectPointerEvent(): WinUIIndirectPointerEvent =
+        WinUIIndirectPointerEvent(
+            type = WinUIIndirectPointerEventType.MOVE,
+            changes = listOf(
+                WinUIIndirectPointerChange(
+                    pointerId = 7L,
+                    timestampMillis = 12L,
+                    x = 1450f,
+                    y = 320f,
+                    pressed = true,
+                    pressure = 0.5f,
+                    previousTimestampMillis = 11L,
+                    previousX = 1400f,
+                    previousY = 300f,
+                    previousPressed = true,
+                ),
+                WinUIIndirectPointerChange(
+                    pointerId = 8L,
+                    timestampMillis = 13L,
+                    x = 2100f,
+                    y = 640f,
+                    pressed = false,
+                    pressure = 0f,
+                    previousTimestampMillis = 12L,
+                    previousX = 2050f,
+                    previousY = 600f,
+                    previousPressed = true,
+                ),
+            ),
+            primaryDirectionalMotionAxis = WinUIIndirectPointerPrimaryDirectionalMotionAxis.Y,
+            deviceId = 99L,
+            deviceRect = WinUIIndirectPointerDeviceRect(-10, 20, 12_000, 7_000),
+            frameId = 42L,
+        )
 }

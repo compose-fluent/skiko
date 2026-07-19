@@ -3,6 +3,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import io.github.composefluent.winrt.gradle.KotlinWinRTPlugin
+import org.gradle.api.GradleException
 import org.gradle.api.Task
 import org.gradle.api.tasks.TaskProvider
 import tasks.configuration.generateVersion
@@ -39,10 +40,22 @@ val winuiWindowsSdkVersion = providers.gradleProperty("skiko.winui.windowsSdkVer
 val winuiWindowsSdkRoot = providers.gradleProperty("skiko.winui.windowsSdkRoot")
     .orElse(providers.environmentVariable("WindowsSdkDir"))
     .orElse(providers.environmentVariable("WINDOWSSDKDIR"))
+val winuiWindowsSkiaDir = providers.gradleProperty("skiko.winui.windowsSkiaDir")
 val winuiMingwNativeArchive = layout.buildDirectory.file("native/winuiMingw/windowsX64/skiko-winui-mingw-windows-x64.a")
 val winuiMingwSkikoBridgeDll = layout.buildDirectory.file("native/winuiMingwSkiko/windowsX64/skiko_winui_skia.dll")
 val winuiMingwSkikoBridgeImportLib = layout.buildDirectory.file("native/winuiMingwSkiko/windowsX64/skiko_winui_skia.lib")
 val winuiMingwSharedLibOutputDir = layout.buildDirectory.dir("bin/winuiMingw/releaseShared")
+val winuiMingwTestOutputDir = layout.buildDirectory.dir("bin/winuiMingw/debugTest")
+val winuiMingwTestIcuData = providers.provider {
+    winuiWindowsSkiaDir.orNull
+        ?.let(::File)
+        ?.resolve("out/Release-windows-x64/icudtl.dat")
+        ?.takeIf(File::isFile)
+        ?: fileTree(layout.projectDirectory.dir("dependencies/skia")) {
+            include("**/out/Release-windows-x64/icudtl.dat")
+        }.files.firstOrNull()
+        ?: throw GradleException("Skia Windows icudtl.dat was not found for winui-mingw tests.")
+}
 val winuiMingwRuntimeResourceDir = layout.buildDirectory.dir("generated/winuiMingwRuntimeResources")
 val winuiMingwRuntimeResourcePath = "winui-mingw/windows-x64"
 
@@ -271,6 +284,21 @@ extensions.configure<KotlinMultiplatformExtension>("kotlin") {
                     definitionFile.set(winuiMingwSkikoBridgeCInteropDef)
                     packageName("org.jetbrains.skiko.winui.internal")
                 }
+                cinterops.create("winuiIndirectPointer") {
+                    packageName("org.jetbrains.skiko.winui.internal.indirect")
+                    headers(
+                        project.file(
+                            "src/winuiMain/cpp/windows/winuiIndirectPointerInput.h"
+                        )
+                    )
+                    includeDirs(
+                        project.file("src/winuiMain/cpp/windows")
+                    )
+                    compilerOpts(
+                        "-DWIN32_LEAN_AND_MEAN",
+                        "-DNOMINMAX",
+                    )
+                }
             }
             binaries.configureEach {
                 linkTaskProvider.configure {
@@ -365,6 +393,7 @@ tasks.register("writeWinuiMingwSkiaBridgeCInteropDef") {
 
 tasks.matching { it.name == "cinteropWinuiMingwSkiaBridgeWinuiMingw" }.configureEach {
     dependsOn("writeWinuiMingwSkiaBridgeCInteropDef")
+    inputs.dir(winuiMingwSkikoBridgeCInteropLibDir)
 }
 
 tasks.register("copyWinuiMingwSkikoBridgeRuntime") {
@@ -381,6 +410,23 @@ tasks.register("copyWinuiMingwSkikoBridgeRuntime") {
             from(winuiMingwSkikoBridgeDll)
             into(destination.parentFile)
         }
+    }
+}
+
+if (winuiMingwEnabled.get()) {
+    val copyWinuiMingwSkikoBridgeTestRuntime = tasks.register<Copy>(
+        "copyWinuiMingwSkikoBridgeTestRuntime"
+    ) {
+        group = "verification"
+        description = "Copies the winui-mingw Skia bridge DLL and ICU data next to the native test executable."
+        dependsOn("linkDebugTestWinuiMingw")
+        from(winuiMingwSkikoBridgeDll)
+        from(winuiMingwTestIcuData)
+        into(winuiMingwTestOutputDir)
+    }
+
+    tasks.named("winuiMingwTest") {
+        dependsOn(copyWinuiMingwSkikoBridgeTestRuntime)
     }
 }
 

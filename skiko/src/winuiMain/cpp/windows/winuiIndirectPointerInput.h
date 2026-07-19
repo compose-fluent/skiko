@@ -45,7 +45,7 @@ enum SkikoWinUIIndirectPointerCallbackResult {
     SKIKO_WINUI_INDIRECT_POINTER_CALLBACK_CONSUMED = 1,
 };
 
-struct SkikoWinUIIndirectPointerChangeView {
+typedef struct SkikoWinUIIndirectPointerChangeView {
     uint64_t pointer_id;
     int64_t timestamp_millis;
     float x;
@@ -56,9 +56,9 @@ struct SkikoWinUIIndirectPointerChangeView {
     float previous_x;
     float previous_y;
     uint8_t previous_pressed;
-};
+} SkikoWinUIIndirectPointerChangeView;
 
-struct SkikoWinUIIndirectPointerEventView {
+typedef struct SkikoWinUIIndirectPointerEventView {
     int32_t type;
     const SkikoWinUIIndirectPointerChangeView* changes;
     uint32_t change_count;
@@ -70,7 +70,7 @@ struct SkikoWinUIIndirectPointerEventView {
     int32_t device_rect_right;
     int32_t device_rect_bottom;
     uint64_t frame_id;
-};
+} SkikoWinUIIndirectPointerEventView;
 
 typedef int32_t (*SkikoWinUIIndirectPointerEventCallback)(
     void* context,
@@ -90,6 +90,11 @@ void* skiko_winui_indirect_pointer_create(
 bool skiko_winui_indirect_pointer_cancel(void* binding);
 bool skiko_winui_indirect_pointer_close(void* binding);
 bool skiko_winui_indirect_pointer_is_active(void* binding);
+int32_t skiko_winui_indirect_pointer_emit_smoke(
+    void* context,
+    SkikoWinUIIndirectPointerEventCallback event_callback,
+    SkikoWinUIIndirectPointerCancelCallback cancel_callback
+);
 
 #ifdef __cplusplus
 }
