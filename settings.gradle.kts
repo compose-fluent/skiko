@@ -22,6 +22,7 @@ fun settingsFlag(name: String): Boolean {
 }
 
 if (!settingsFlag("skiko.winui.skipSamples")) {
+    includeBuild("benchmarks/SkikoBenchmarks")
     includeBuild("samples/SkiaAwtSample")
 }
 if (settingsFlag("skiko.winui.enabled") && settingsFlag("skiko.winui.samples.enabled") && !settingsFlag("skiko.winui.skipSamples")) {
