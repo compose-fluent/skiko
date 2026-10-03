@@ -218,6 +218,7 @@ fun File.toWinuiObjectName(): String =
 fun windowsSkiaIncludeDirs(skiaDir: File): List<File> = listOf(
     skiaDir,
     skiaDir.resolve("include"),
+    skiaDir.resolve("include/third_party/vulkan"),
     skiaDir.resolve("include/core"),
     skiaDir.resolve("include/config"),
     skiaDir.resolve("include/codec"),
@@ -394,6 +395,7 @@ fun skikoWinuiMainDefines(): List<String> = listOf(
     "WIN32_LEAN_AND_MEAN",
     "NOMINMAX",
     "SK_DIRECT3D",
+    "SK_VULKAN",
 )
 
 fun skikoWinuiMainSkiaLibs(skiaLibDir: File): List<File> = listOf(
@@ -404,10 +406,7 @@ fun skikoWinuiMainSkiaLibs(skiaLibDir: File): List<File> = listOf(
     "skshaper.lib",
     "skparagraph.lib",
     "skresources.lib",
-    "sksg.lib",
-    "skottie.lib",
     "svg.lib",
-    "jsonreader.lib",
     "icu.lib",
     "harfbuzz.lib",
     "png.lib",
@@ -421,6 +420,11 @@ fun skikoWinuiMainSkiaLibs(skiaLibDir: File): List<File> = listOf(
     "d3d12allocator.lib",
     "bentleyottmann.lib",
     "spirv_cross.lib",
+    // Since Skia m151, skia.lib on Windows references partition_alloc/raw_ptr symbols
+    // that live in these split-out static libs.
+    "raw_ptr.lib",
+    "allocator_core.lib",
+    "allocator_base.lib",
 ).map { skiaLibDir.resolve(it) }
 
 fun skikoWinuiMainSystemLibs(): List<String> = listOf(
@@ -432,6 +436,8 @@ fun skikoWinuiMainSystemLibs(): List<String> = listOf(
     "Shcore.lib",
     "Shlwapi.lib",
     "User32.lib",
+    // partition_alloc (linked since Skia m151) calls timeGetTime.
+    "Winmm.lib",
     "D3D12.lib",
     "Dxgi.lib",
     "D3DCompiler.lib",
@@ -809,6 +815,7 @@ val compileWinuiMingwSkikoNativeWindowsX64 by tasks.registering {
                     appendLine("/c")
                     appendLine("/std:c++20")
                     appendLine("/O2")
+                    appendLine("/Zc:inline")
                     appendLine("/utf-8")
                     appendLine("/GR-")
                     appendLine("/FS")
@@ -835,6 +842,7 @@ val compileWinuiMingwSkikoNativeWindowsX64 by tasks.registering {
                 appendLine("/NOLOGO")
                 appendLine("/DLL")
                 appendLine("/DEBUG")
+                appendLine("/OPT:ICF")
                 appendLine("/OUT:${dll.toResponseFilePath()}")
                 appendLine("/IMPLIB:${importLib.toResponseFilePath()}")
                 appendLine("/DEF:${defFile.toResponseFilePath()}")
@@ -970,6 +978,7 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
                     appendLine("/c")
                     appendLine("/std:c++20")
                     appendLine("/O2")
+                    appendLine("/Zc:inline")
                     appendLine("/utf-8")
                     appendLine("/GR-")
                     appendLine("/FS")
@@ -988,6 +997,10 @@ val compileWinuiSkikoWindowsX64 by tasks.registering {
                 appendLine("/NOLOGO")
                 appendLine("/DLL")
                 appendLine("/DEBUG")
+                appendLine("/OPT:ICF")
+                // interop.hh declares the helpers shared with Skiko extension modules as dllimport,
+                // and this DLL is the one defining them.
+                appendLine("/ignore:4217")
                 appendLine("/OUT:${dll.toResponseFilePath()}")
                 appendLine("/IMPLIB:${importLib.toResponseFilePath()}")
                 appendLine("/alternatename:__std_search_1=skiko_winui___std_search_1")

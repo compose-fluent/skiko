@@ -88,7 +88,8 @@ private class SkikoPublishingContext(
 fun SkikoProjectContext.declarePublications() {
     val ctx = SkikoPublishingContext(this)
     ctx.configurePublishingRepositories()
-    if (project.findProperty("skiko.winui.enabled") == "true") {
+    // Only the core module publishes skiko-winui artifacts (see gradle/winui-publishing.gradle.kts).
+    if (kind == SkikoModuleKind.CORE && project.findProperty("skiko.winui.enabled") == "true") {
         ctx.configurePomNames()
         return
     }
