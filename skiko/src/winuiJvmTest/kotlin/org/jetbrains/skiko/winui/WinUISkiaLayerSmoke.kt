@@ -1,7 +1,9 @@
 package org.jetbrains.skiko.winui
 
-import io.github.composefluent.winrt.runtime.RuntimeScope
-import io.github.composefluent.winrt.runtime.WinRTWindowsAppSdkBootstrap
+import io.github.composefluent.winrt.runtime.WinAppHostConfiguration
+import io.github.composefluent.winrt.runtime.WinAppPackageIdentity
+import io.github.composefluent.winrt.runtime.WindowsAppSdkBootstrap
+import io.github.composefluent.winrt.runtime.WindowsAppSdkDeploymentMode
 import io.github.composefluent.winrt.runtime.asWinRT
 import microsoft.ui.dispatching.DispatcherQueue
 import microsoft.ui.dispatching.DispatcherQueueTimer
@@ -60,28 +62,31 @@ object WinUISkiaLayerSmoke {
     }
 
     private fun start(options: SmokeOptions = SmokeOptions()) {
-        println("skiko-winui-smoke: bootstrap begin")
-        WinRTWindowsAppSdkBootstrap.initialize().use {
-            println("skiko-winui-smoke: bootstrap=initialized")
-            println("skiko-winui-smoke: runtime scope begin")
-            RuntimeScope.initializeSingleThreaded().use {
-                println("skiko-winui-smoke: application start")
-                Application.start {
-                    println("skiko-winui-smoke: application callback")
-                    val application = if (options.useApplicationCurrent) {
-                        println("skiko-winui-smoke: use application current")
-                        Application.current ?: Application()
-                    } else {
-                        Application()
-                    }
-                    println("skiko-winui-smoke: application pointer ${application.nativeObject.pointer.value}")
-                    println(
-                        "skiko-winui-smoke: current pointer " +
-                            "${Application.current?.nativeObject?.pointer?.value ?: 0L}"
-                    )
-                    activeSession = SmokeSession(application, options).also { session ->
-                        session.launch()
-                    }
+        println("skiko-winui-smoke: application host begin ${options.windowsAppSdkDeployment}")
+        // The application host owns the Windows App SDK deployment and the UI apartment.
+        WindowsAppSdkBootstrap.initializeApplicationHost(
+            WinAppHostConfiguration.fromStagedRuntimeAssets(
+                packageIdentity = WinAppPackageIdentity.Unpackaged,
+                windowsAppSdkDeployment = options.windowsAppSdkDeployment,
+            ),
+        ).use {
+            println("skiko-winui-smoke: application host=initialized")
+            println("skiko-winui-smoke: application start")
+            Application.start {
+                println("skiko-winui-smoke: application callback")
+                val application = if (options.useApplicationCurrent) {
+                    println("skiko-winui-smoke: use application current")
+                    Application.current ?: Application()
+                } else {
+                    Application()
+                }
+                println("skiko-winui-smoke: application pointer ${application.nativeObject.pointer.value}")
+                println(
+                    "skiko-winui-smoke: current pointer " +
+                        "${Application.current?.nativeObject?.pointer?.value ?: 0L}"
+                )
+                activeSession = SmokeSession(application, options).also { session ->
+                    session.launch()
                 }
             }
             println("skiko-winui-smoke: application returned")
@@ -868,10 +873,17 @@ private data class SmokeOptions(
     val verifyInputHandler: Boolean = true,
     val verifyFocusAfterDispatcher: Boolean = false,
     val useLayerAttach: Boolean = false,
+    // Matches the self-contained layout that samples/SkiaWinUISample stages.
+    val windowsAppSdkDeployment: WindowsAppSdkDeploymentMode = WindowsAppSdkDeploymentMode.SelfContained,
 ) {
     companion object {
         fun from(args: Array<String>): SmokeOptions =
             SmokeOptions(
+                windowsAppSdkDeployment = if (args.contains("--framework-dependent-windows-app-sdk")) {
+                    WindowsAppSdkDeploymentMode.FrameworkDependent
+                } else {
+                    WindowsAppSdkDeploymentMode.SelfContained
+                },
                 autoExit = !args.contains("--keep-open"),
                 useGeneratedWindowApi = !args.contains("--direct-window-vtable"),
                 useApplicationExit = !args.contains("--use-process-exit"),

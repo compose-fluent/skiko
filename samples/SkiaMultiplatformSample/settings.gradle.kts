@@ -15,14 +15,14 @@ pluginManagement {
 
     resolutionStrategy {
         eachPlugin {
-            if (requested.id.id == "io.github.composefluent.winrt") {
+            if (requested.id.id == "io.github.compose-fluent.windows-toolkit") {
                 val kotlinWinRTVersion = providers.gradleProperty("kotlinWinRT.version")
                     .orElse("0.1.0-SNAPSHOT")
                     .get()
                 val kotlinWinRTGroup = providers.gradleProperty("kotlinWinRT.group")
                     .orElse("io.github.compose-fluent")
                     .get()
-                useModule("$kotlinWinRTGroup:winrt-gradle-plugin:$kotlinWinRTVersion")
+                useModule("$kotlinWinRTGroup:windows-toolkit-gradle-plugin:$kotlinWinRTVersion")
             }
         }
     }

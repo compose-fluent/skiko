@@ -9,7 +9,8 @@ fun JavaExec.configureWinuiJvmSmokeClasspath() {
         .orElse(builtWindowsRuntimeJar.flatMap { it.archiveFile })
     val runtimeAssetsRoot = providers.gradleProperty("skiko.winui.runtimeAssetsRoot")
         .orElse(
-            layout.projectDirectory.dir("../../samples/SkiaWinUISample/build/kotlin-winrt/application-package")
+            layout.projectDirectory
+                .dir("../samples/SkiaWinUISample/build/kotlin-winrt/application-layout/winuiJvm_main/package")
                 .asFile.absolutePath
         )
     mainClass.set("org.jetbrains.skiko.winui.WinUISkiaLayerSmoke")

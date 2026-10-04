@@ -1,3 +1,4 @@
+import org.gradle.api.artifacts.ConfigurablePublishArtifact
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.jvm.tasks.Jar
@@ -80,6 +81,17 @@ tasks.register<Jar>("skikoWinuiMingwRuntimeJavadocJar") {
     description = "Builds an empty skiko-winui mingw runtime javadoc jar for Maven Central publication."
     archiveBaseName.set("skiko-winui-mingw-runtime")
     archiveClassifier.set("javadoc")
+}
+
+// The toolkit plugin attaches one AppX resources zip per target to the root publication without
+// a classifier, which Maven rejects as duplicate artifacts once there is more than one target.
+configurations.matching { it.name.startsWith("kotlinAppxResourcesElements") }.configureEach {
+    val sourceSetName = name.removePrefix("kotlinAppxResourcesElements").replaceFirstChar(Char::lowercaseChar)
+    if (sourceSetName.isNotEmpty()) {
+        outgoing.artifacts.configureEach {
+            (this as ConfigurablePublishArtifact).classifier = "$sourceSetName-appx-resources"
+        }
+    }
 }
 
 extensions.configure<PublishingExtension>("publishing") {
