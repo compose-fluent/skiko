@@ -37,7 +37,13 @@ buildscript {
 
 apply<KotlinWindowsToolkitPlugin>()
 
-val winuiWindowsAppSdkVersion = "2.2.0"
+// The Windows App SDK components that skiko-winui uses. Microsoft.WindowsAppSDK itself is a
+// metapackage that references every component (AI, ML, Widgets, ...), and a self-contained
+// application stages the runtime of each package that any library declares: the components
+// keep that to what WinUI needs. WinUI brings Foundation and InteractiveExperiences (the
+// Microsoft.UI.* namespaces); DWriteCore is the text engine of WinUI 3.
+val winuiWindowsAppSdkWinUiVersion = "2.2.1"
+val winuiWindowsAppSdkDWriteVersion = "2.1.0"
 val winuiWindowsSdkVersion = providers.gradleProperty("skiko.winui.windowsSdkVersion")
     .orElse("10.0.26100.0")
 val winuiWindowsSdkRoot = providers.gradleProperty("skiko.winui.windowsSdkRoot")
@@ -243,8 +249,11 @@ repositories {
 extensions.configure<WindowsExtension>("windows") {
     packageReferences {
         windowsSdk(winuiWindowsSdkVersion.get(), includeExtensions = false, generateProjection = true)
-        nugetPackage("Microsoft.WindowsAppSDK", winuiWindowsAppSdkVersion) {
+        nugetPackage("Microsoft.WindowsAppSDK.WinUI", winuiWindowsAppSdkWinUiVersion) {
             generateProjection = true
+        }
+        nugetPackage("Microsoft.WindowsAppSDK.DWrite", winuiWindowsAppSdkDWriteVersion) {
+            generateProjection = false
         }
         namespace("Microsoft.UI.Windowing")
         winuiProjectionTypes.forEach(::type)
