@@ -35,6 +35,9 @@ val winuiMingwNativeObjectsDir = winuiMingwNativeOutputDir.map { it.dir("obj") }
 val winuiMingwNativeArchive = winuiMingwNativeOutputDir.map { it.file("skiko-winui-mingw-windows-x64.a") }
 val winuiMingwLlvmDir = providers.gradleProperty("skiko.winui.mingw.llvmDir")
 val winuiMingwSysroot = providers.gradleProperty("skiko.winui.mingw.sysroot")
+val winuiKonanDataDir = providers.gradleProperty("konan.data.dir")
+    .orElse(providers.environmentVariable("KONAN_DATA_DIR"))
+    .orElse(providers.systemProperty("user.home").map { "$it/.konan" })
 val winuiIncludeTestHelpers = providers.gradleProperty("deploy.release")
     .map { it != "true" }
     .orElse(true)
@@ -148,8 +151,8 @@ fun vcvars64Bat(): File =
         )
 
 fun defaultKonanDependencyDir(name: String): File? =
-    File(System.getProperty("user.home"))
-        .resolve(".konan/dependencies")
+    File(winuiKonanDataDir.get())
+        .resolve("dependencies")
         .takeIf(File::isDirectory)
         ?.listFiles()
         ?.filter { it.isDirectory && it.name.startsWith(name) }
@@ -653,6 +656,14 @@ val compileWinuiMingwNativeWindowsX64 by tasks.registering {
     group = "build"
     description = "Compiles the skiko-winui Kotlin/Native mingwX64 Direct3D bridge as a static archive."
     dependsOn(resolveWinuiJvmNativeWindowsAppSdk)
+    // On a clean host, provision LLVM and the MinGW sysroot before this prerequisite
+    // of Kotlin/Native compilation runs. Explicit toolchains need no provisioning.
+    if (isWindowsHost &&
+        providers.gradleProperty("skiko.winui.mingw.enabled").map(String::toBoolean).getOrElse(true) &&
+        (!winuiMingwLlvmDir.isPresent || !winuiMingwSysroot.isPresent)
+    ) {
+        dependsOn("downloadKotlinNativeDistribution")
+    }
 
     val nativeSources = listOf(
         winuiJvmNativeSource.asFile,
@@ -663,6 +674,7 @@ val compileWinuiMingwNativeWindowsX64 by tasks.registering {
     inputs.property("windowsSdkVersion", winuiNativeWindowsSdkVersion)
     inputs.property("mingwLlvmDir", winuiMingwLlvmDir.orNull ?: "")
     inputs.property("mingwSysroot", winuiMingwSysroot.orNull ?: "")
+    inputs.property("konanDataDir", winuiKonanDataDir)
     outputs.file(winuiMingwNativeArchive)
 
     onlyIf { isWindowsHost }
