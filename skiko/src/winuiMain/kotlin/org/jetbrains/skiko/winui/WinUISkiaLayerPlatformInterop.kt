@@ -27,6 +27,9 @@ internal class WinUISkiaLayerPlatformInterop(
         )
     }
 
+    val direct3DInterop: WinUIDirect3DInterop?
+        get() = renderer.direct3DInterop
+
     fun render(
         width: Int,
         height: Int,

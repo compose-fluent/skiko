@@ -305,6 +305,17 @@ class WinUISkiaLayer(
             lastFailure = lastRenderFailure,
         )
 
+    /**
+     * The Direct3D 12 device, queue and Skia context this layer renders with, for libraries that
+     * draw their own GPU resources through Skia (see [WinUIDirect3DInterop]).
+     *
+     * Null until the first frame created the device, and again after [close]. The same instance is
+     * returned while the device lives; compare identities (or check [WinUIDirect3DInterop.isValid])
+     * to notice a replacement. UI thread only.
+     */
+    val direct3DInterop: WinUIDirect3DInterop?
+        get() = if (isDisposed) null else platformInterop.direct3DInterop
+
     private fun invalidateRender() {
         if (!isReadyForRender) {
             renderRequestedWhileUnloaded = true
