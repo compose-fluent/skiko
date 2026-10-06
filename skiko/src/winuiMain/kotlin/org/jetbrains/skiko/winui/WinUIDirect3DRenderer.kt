@@ -16,6 +16,7 @@ internal class WinUIDirect3DRenderer(
     private val bufferCount = 2
     private var device: WinUINativePointer = WinUINullPointer
     private var context: DirectContext? = null
+    private var interop: Interop? = null
     private var surfaces = arrayOfNulls<Surface>(bufferCount)
     private var renderTargets = arrayOfNulls<BackendRenderTarget>(bufferCount)
     private var isSwapChainInitialized = false
@@ -128,6 +129,25 @@ internal class WinUIDirect3DRenderer(
         createSurfaces(width, height)
         bridge.initFence(device)
         isSwapChainInitialized = true
+        interop = context?.let { context ->
+            Interop(
+                directContext = context,
+                devicePtr = bridge.getDevicePtr(device),
+                queuePtr = bridge.getQueuePtr(device),
+            )
+        }
+    }
+
+    /** The GPU objects of the current device, once the first frame created them. */
+    val direct3DInterop: WinUIDirect3DInterop?
+        get() = interop
+
+    private class Interop(
+        override val directContext: DirectContext,
+        override val devicePtr: Long,
+        override val queuePtr: Long,
+    ) : WinUIDirect3DInterop {
+        override var isValid: Boolean = true
     }
 
     private fun createSurfaces(width: Int, height: Int) {
@@ -191,6 +211,8 @@ internal class WinUIDirect3DRenderer(
         context?.flush()
         disposeSurfaces()
         bridge.releaseBufferResources(device)
+        interop?.isValid = false
+        interop = null
         context?.close()
         context = null
         bridge.disposeDevice(device)

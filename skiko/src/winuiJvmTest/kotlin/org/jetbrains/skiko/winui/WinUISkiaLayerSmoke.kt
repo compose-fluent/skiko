@@ -103,6 +103,7 @@ private class SmokeSession(
 ) : AutoCloseable {
     private var window: Window? = null
     private var layer: WinUISkiaLayerSurface? = null
+    private var closedInterop: WinUIDirect3DInterop? = null
     private var windowBinding: WinUISkiaWindowBinding? = null
     private var focusTimer: DispatcherQueueTimer? = null
     private var focusTimerTickToken: EventRegistrationToken? = null
@@ -239,6 +240,12 @@ private class SmokeSession(
         println("skiko-winui-smoke: close layer second")
         layer?.close()
         println("skiko-winui-smoke: layer closed")
+        closedInterop?.let { interop ->
+            check(!interop.isValid) { "Expected the Direct3D interop to be invalid after close." }
+            check((layer as? WinUISkiaLayer)?.direct3DInterop == null) { "Expected no Direct3D interop after close." }
+            println("skiko-winui-smoke: interop invalidated by close")
+        }
+        closedInterop = null
         layer = null
         println("skiko-winui-smoke: close window")
         window?.close()
@@ -463,6 +470,22 @@ private class SmokeSession(
             "skiko-winui-smoke: diagnostics renderVersion=${diagnostics.renderVersion} " +
                 "platform=${lastPlatformResult.width}x${lastPlatformResult.height}"
         )
+        verifyDirect3DInterop(skiaLayer)
+    }
+
+    private fun verifyDirect3DInterop(skiaLayer: WinUISkiaLayer) {
+        println("skiko-winui-smoke: verify Direct3D interop")
+        val interop = skiaLayer.direct3DInterop
+            ?: error("Expected the Direct3D interop to exist after the first rendered frame.")
+        check(interop.isValid) { "Expected the Direct3D interop to be valid while the layer is live." }
+        check(interop.devicePtr != 0L) { "Expected a non-null ID3D12Device pointer." }
+        check(interop.queuePtr != 0L) { "Expected a non-null ID3D12CommandQueue pointer." }
+        check(!interop.directContext.isClosed) { "Expected the layer's DirectContext to be open." }
+        check(skiaLayer.direct3DInterop === interop) {
+            "Expected the same interop instance while the device lives."
+        }
+        closedInterop = interop
+        println("skiko-winui-smoke: interop device=0x${interop.devicePtr.toString(16)} queue=0x${interop.queuePtr.toString(16)}")
     }
 
     private fun forceLayout(uiElement: UIElement, width: Double, height: Double) {
