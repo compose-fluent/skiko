@@ -216,6 +216,9 @@ val winuiProjectionTypes = listOf(
     "Microsoft.UI.Xaml.Controls.UIElementCollection",
     "Microsoft.UI.Dispatching.DispatcherQueue",
     "Microsoft.UI.Dispatching.DispatcherQueueTimer",
+    // Title bar regions of windows whose content extends into the title bar (compose-winui).
+    "Microsoft.UI.Input.InputNonClientPointerSource",
+    "Microsoft.UI.Input.NonClientRegionKind",
     "Windows.Foundation.Size",
     "Windows.UI.Text.Core.CoreTextCompositionCompletedEventArgs",
     "Windows.UI.Text.Core.CoreTextCompositionStartedEventArgs",
