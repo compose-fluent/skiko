@@ -6,3 +6,5 @@ import platform.posix.getenv
 
 @OptIn(ExperimentalForeignApi::class)
 internal actual fun winuiEnvironmentVariable(name: String): String? = getenv(name)?.toKString()
+
+internal actual fun winuiCurrentThreadId(): Long = platform.windows.GetCurrentThreadId().toLong()

@@ -62,6 +62,11 @@ internal object WinUISkiaLayerNative : WinUIDirect3DRenderBridge {
         panelPointer: WinUINativePointer,
     ): WinUINativePointer
 
+    override external fun createDirectXDeviceSharing(
+        sourceDevice: WinUINativePointer,
+        panelPointer: WinUINativePointer,
+    ): WinUINativePointer
+
     override external fun getAdapterPtr(device: WinUINativePointer): WinUINativePointer
 
     override external fun getDevicePtr(device: WinUINativePointer): WinUINativePointer
