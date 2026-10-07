@@ -50,32 +50,33 @@ class WinUIDispatcherTimer(
     }
 }
 
+/**
+ * Requests a render of [layer] on every frame of the XAML compositor while running, at the refresh
+ * rate of the display. [interval] is ignored: frames follow the compositor (see
+ * [WinUICompositorFrameTicker] for why a timer cannot pace them).
+ */
 class WinUIFrameScheduler(
     private val layer: WinUISkiaLayerSurface,
-    interval: Duration = 16.milliseconds,
+    @Suppress("UNUSED_PARAMETER") interval: Duration = 16.milliseconds,
     dispatcherQueue: DispatcherQueue = DispatcherQueue.getForCurrentThread(),
     private val throttledToVsync: Boolean = true,
 ) : AutoCloseable {
-    private val timer = WinUIDispatcherTimer(
-        dispatcherQueue = dispatcherQueue,
-        interval = interval,
-        repeating = true,
-    ) {
+    private val ticker = WinUICompositorFrameTicker(dispatcherQueue) {
         layer.needRender(throttledToVsync = throttledToVsync)
     }
 
     val isRunning: Boolean
-        get() = timer.isRunning
+        get() = ticker.isArmed
 
     fun start() {
-        timer.start()
+        ticker.arm()
     }
 
     fun stop() {
-        timer.stop()
+        ticker.disarm()
     }
 
     override fun close() {
-        timer.close()
+        ticker.close()
     }
 }

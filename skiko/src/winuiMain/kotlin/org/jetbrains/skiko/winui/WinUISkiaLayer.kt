@@ -7,8 +7,6 @@ import microsoft.ui.xaml.RoutedEventHandler
 import microsoft.ui.xaml.SizeChangedEventHandler
 import microsoft.ui.xaml.Window
 import org.jetbrains.skia.Canvas
-import org.jetbrains.skia.Picture
-import org.jetbrains.skia.PictureRecorder
 import org.jetbrains.skia.PixelGeometry
 import org.jetbrains.skiko.GraphicsApi
 import org.jetbrains.skiko.SkikoRenderDelegate
@@ -49,9 +47,6 @@ class WinUISkiaLayer(
     private var compositionScaleChangedToken: EventRegistrationToken? = null
     private var loadedToken: EventRegistrationToken? = null
     private var unloadedToken: EventRegistrationToken? = null
-    private val pictureLock = WinUILock()
-    private val pictureRecorder = PictureRecorder()
-    private var picture: WinUIPictureHolder? = null
     private var drawScope: WinUILayerDrawScope? = null
     private var lastRenderedState: WinUILayerRenderState? = null
     private var lastInvalidatedState: WinUILayerRenderState? = null
@@ -348,38 +343,22 @@ class WinUISkiaLayer(
         needRender()
     }
 
-    internal fun draw(canvas: Canvas) {
+    /**
+     * Renders the content straight into [canvas], the back buffer of the swap chain.
+     *
+     * The frame is rendered on the UI thread, where the content is produced as well: recording it
+     * into a picture first and playing that back, as the AWT layer does to hand frames to its render
+     * thread, would only draw everything twice.
+     */
+    internal fun renderInto(canvas: Canvas, nanoTime: Long) {
         check(!isDisposed) { "WinUISkiaLayer is disposed" }
-        check(drawScope != null) { "WinUISkiaLayer.draw() is only valid inside native render." }
-        lockPicture { holder ->
-            canvas.drawPicture(holder.picture)
-        }
-    }
-
-    internal fun update(nanoTime: Long) {
-        check(!isDisposed) { "WinUISkiaLayer is disposed" }
-        val scope = drawScope ?: throw IllegalStateException("WinUISkiaLayer.update() is only valid inside native render.")
-        val pictureWidth = scope.width.toFloat().coerceAtLeast(0f)
-        val pictureHeight = scope.height.toFloat().coerceAtLeast(0f)
-        val canvas = pictureRecorder.beginRecording(0f, 0f, pictureWidth, pictureHeight).apply {
-            clear(0x00000000)
-        }
+        val scope = drawScope ?: throw IllegalStateException("WinUISkiaLayer.renderInto() is only valid inside native render.")
         renderDelegate?.onRender(
             canvas = canvas,
             width = scope.width,
             height = scope.height,
             nanoTime = nanoTime,
         )
-        if (!isDisposed && !pictureRecorder.isClosed) {
-            winuiSynchronized(pictureLock) {
-                picture?.picture?.close()
-                picture = WinUIPictureHolder(
-                    picture = pictureRecorder.finishRecordingAsPicture(),
-                    width = scope.width,
-                    height = scope.height,
-                )
-            }
-        }
     }
 
     internal inline fun inDrawScope(
@@ -426,10 +405,6 @@ class WinUISkiaLayer(
         accessibilityInterop.close()
         renderDispatcher.close()
         platformInterop.close()
-        winuiSynchronized(pictureLock) {
-            picture?.picture?.close()
-            picture = null
-        }
         lastRenderedState = null
         lastInvalidatedState = null
         lastPlatformResult = null
@@ -437,7 +412,6 @@ class WinUISkiaLayer(
         renderVersion = 0L
         hasLoadedForRender = false
         renderRequestedWhileUnloaded = false
-        pictureRecorder.close()
     }
 
     private fun renderNow(throttledToVsync: Boolean) {
@@ -513,11 +487,6 @@ class WinUISkiaLayer(
         renderRequestedWhileUnloaded = true
     }
 
-    private fun <T : Any> lockPicture(action: (WinUIPictureHolder) -> T): T? =
-        winuiSynchronized(pictureLock) {
-            picture?.let(action)
-        }
-
     private fun logicalRenderWidth(): Float =
         hostPanel.component.width.toRenderableDimension()
             ?: hostPanel.component.actualWidth.toFloat().takeIf { it > 0f }
@@ -563,8 +532,3 @@ internal class WinUILayerDrawScope(
         get() = (height / contentScale).toInt()
 }
 
-private class WinUIPictureHolder(
-    val picture: Picture,
-    val width: Int,
-    val height: Int,
-)

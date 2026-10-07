@@ -24,6 +24,7 @@ internal class WinUIDirect3DRenderer(
     private var lastHeight = 0
     private var isDisposed = false
     private val renderClockStart = TimeSource.Monotonic.markNow()
+    private val frameStats = if (WinUIFrameStats.isEnabled) WinUIFrameStats("layer@${layer.hashCode()}") else null
 
     fun render(
         width: Int,
@@ -51,7 +52,7 @@ internal class WinUIDirect3DRenderer(
         if (isSwapChainInitialized) {
             if (width != lastWidth || height != lastHeight) {
                 disposeSurfaces()
-                context?.flush()
+                finishGpuWork()
                 bridge.releaseBufferResources(device)
                 bridge.resizeBuffers(device, width, height)
                 createSurfaces(width, height)
@@ -76,8 +77,9 @@ internal class WinUIDirect3DRenderer(
             contentScale = contentScale,
             nanoTime = nanoTime,
         ) {
-            layer.update(nanoTime)
-            bufferIndex = drawAndPresent(throttledToVsync)
+            frameStats?.beginFrame()
+            bufferIndex = drawAndPresent(nanoTime, throttledToVsync)
+            frameStats?.endFrame()
         }
         return WinUIPlatformRenderResult(
             width = width,
@@ -178,16 +180,34 @@ internal class WinUIDirect3DRenderer(
         }
     }
 
-    private fun drawAndPresent(throttledToVsync: Boolean): Int {
+    private fun drawAndPresent(nanoTime: Long, throttledToVsync: Boolean): Int {
         val context = context ?: return -1
         val bufferIndex = bridge.getBufferIndex(device)
+        frameStats?.mark(WinUIFrameStats.Phase.Wait)
         val surface = surfaces[bufferIndex] ?: return -1
         val canvas = surface.canvas
         canvas.clear(0x00000000)
-        layer.draw(canvas)
-        context.flushAndSubmit(surface, syncCpu = true)
+        layer.renderInto(canvas, nanoTime)
+        frameStats?.mark(WinUIFrameStats.Phase.Draw)
+        // No CPU sync: rendering runs on the UI thread, which must not wait for the GPU. The fence
+        // that present() signals keeps the CPU from reusing a back buffer the GPU still uses
+        // (getBufferIndex waits for it), so the CPU runs at most a swap chain ahead.
+        context.flushAndSubmit(surface, syncCpu = false)
+        frameStats?.mark(WinUIFrameStats.Phase.Submit)
         bridge.present(device, throttledToVsync)
+        frameStats?.mark(WinUIFrameStats.Phase.Present)
         return bufferIndex
+    }
+
+    /**
+     * Waits until the GPU has run the submitted work. Frames are submitted without a CPU sync, so
+     * Skia releases the back buffers of closed surfaces only once the GPU is done with them, and
+     * ResizeBuffers fails while any reference to a back buffer is left.
+     */
+    private fun finishGpuWork() {
+        val context = context ?: return
+        context.flush()
+        context.submit(syncCpu = true)
     }
 
     private fun disposeSurfaces() {
@@ -208,8 +228,8 @@ internal class WinUIDirect3DRenderer(
             lastHeight = 0
             return
         }
-        context?.flush()
         disposeSurfaces()
+        finishGpuWork()
         bridge.releaseBufferResources(device)
         interop?.isValid = false
         interop = null

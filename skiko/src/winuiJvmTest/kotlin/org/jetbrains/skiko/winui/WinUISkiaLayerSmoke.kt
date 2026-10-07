@@ -704,11 +704,11 @@ private class SmokeSession(
         if (skiaLayer is WinUISkiaLayer) {
             Surface.makeRasterN32Premul(1, 1).use { surface ->
                 try {
-                    skiaLayer.draw(surface.canvas)
-                    error("Expected WinUISkiaLayer.draw(canvas) outside native render to fail.")
+                    skiaLayer.renderInto(surface.canvas, nanoTime = 0L)
+                    error("Expected WinUISkiaLayer.renderInto(canvas) outside native render to fail.")
                 } catch (exception: IllegalStateException) {
                     check(exception.message?.contains("inside native render") == true) {
-                        "Unexpected draw failure message: ${exception.message}"
+                        "Unexpected renderInto failure message: ${exception.message}"
                     }
                 }
             }
