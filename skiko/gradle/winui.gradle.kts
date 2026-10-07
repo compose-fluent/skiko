@@ -196,6 +196,7 @@ val winuiProjectionTypes = listOf(
     "Microsoft.UI.Xaml.Window",
     "Microsoft.UI.Xaml.WindowActivatedEventArgs",
     "Microsoft.UI.Xaml.WindowActivationState",
+    "Microsoft.UI.Xaml.Media.CompositionTarget",
     "Microsoft.UI.Xaml.Media.MicaBackdrop",
     "Microsoft.UI.Xaml.Automation.AutomationProperties",
     "Microsoft.UI.Xaml.Automation.Peers.AutomationControlType",

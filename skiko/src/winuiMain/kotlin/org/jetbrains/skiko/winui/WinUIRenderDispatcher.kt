@@ -3,6 +3,15 @@ package org.jetbrains.skiko.winui
 import microsoft.ui.dispatching.DispatcherQueue
 import microsoft.ui.dispatching.DispatcherQueueHandler
 
+/**
+ * Coalesces render requests of a layer and runs them on its UI thread.
+ *
+ * A request throttled to vsync renders on the next frame of the XAML compositor
+ * ([WinUICompositorFrameTicker]), so content that asks for a frame on every frame (animations,
+ * scrolling) renders at the refresh rate of the display and in step with it. An unthrottled request
+ * (a resize, the first frame) renders as soon as the dispatcher queue runs it. Without requests the
+ * ticker is disarmed and nothing renders.
+ */
 internal class WinUIRenderDispatcher(
     private val dispatcherQueue: DispatcherQueue,
     private val isDisposed: () -> Boolean,
@@ -11,8 +20,13 @@ internal class WinUIRenderDispatcher(
     private val lock = WinUILock()
     private var pendingRender = false
     private var pendingRenderThrottledToVsync = true
-    private var isPendingRenderEnqueued = false
+    private var isImmediateRenderEnqueued = false
     private var isClosed = false
+
+    // Only touched on the UI thread.
+    private var idleFrames = 0
+
+    private val frameTicker = WinUICompositorFrameTicker(dispatcherQueue, ::onCompositorFrame)
 
     fun needRender(throttledToVsync: Boolean) {
         checkOpen()
@@ -21,50 +35,62 @@ internal class WinUIRenderDispatcher(
 
     fun scheduleRender(throttledToVsync: Boolean) {
         checkOpen()
-        val shouldEnqueue = winuiSynchronized(lock) {
-            scheduleRenderLocked(throttledToVsync)
+        val enqueueImmediate = winuiSynchronized(lock) {
+            pendingRender = true
+            pendingRenderThrottledToVsync = pendingRenderThrottledToVsync && throttledToVsync
+            if (!throttledToVsync && !isImmediateRenderEnqueued) {
+                isImmediateRenderEnqueued = true
+                true
+            } else {
+                false
+            }
         }
-        if (shouldEnqueue) {
-            enqueuePendingRender()
+        if (enqueueImmediate) {
+            enqueueImmediateRender()
+        } else if (throttledToVsync) {
+            frameTicker.arm()
         }
     }
 
-    private fun scheduleRenderLocked(throttledToVsync: Boolean): Boolean {
-        pendingRender = true
-        pendingRenderThrottledToVsync = pendingRenderThrottledToVsync && throttledToVsync
-        if (isPendingRenderEnqueued) {
-            return false
-        }
-        isPendingRenderEnqueued = true
-        return true
-    }
-
-    private fun enqueuePendingRender() {
+    private fun enqueueImmediateRender() {
         val enqueued = dispatcherQueue.tryEnqueue(DispatcherQueueHandler {
-            val pendingThrottledToVsync = winuiSynchronized(lock) {
-                isPendingRenderEnqueued = false
-                if (isClosed || isDisposed() || !pendingRender) {
-                    return@DispatcherQueueHandler
-                }
-                val pendingThrottledToVsync = pendingRenderThrottledToVsync
-                pendingRender = false
-                pendingRenderThrottledToVsync = true
-                pendingThrottledToVsync
-            }
-            if (isClosedOrDisposed()) {
-                return@DispatcherQueueHandler
-            }
-            render(throttledToVsync = pendingThrottledToVsync)
+            winuiSynchronized(lock) { isImmediateRenderEnqueued = false }
+            renderPending()
         })
         if (!enqueued) {
-            winuiSynchronized(lock) {
-                isPendingRenderEnqueued = false
+            winuiSynchronized(lock) { isImmediateRenderEnqueued = false }
+        }
+    }
+
+    private fun onCompositorFrame() {
+        if (renderPending()) {
+            idleFrames = 0
+        } else if (++idleFrames >= IdleFramesBeforeDisarm) {
+            idleFrames = 0
+            frameTicker.disarm()
+            // A request that raced with the disarm re-arms the ticker.
+            if (winuiSynchronized(lock) { pendingRender && !isClosed }) {
+                frameTicker.arm()
             }
         }
     }
 
-    private fun render(throttledToVsync: Boolean) {
+    /** Renders the pending request, if any; `true` when it rendered. */
+    private fun renderPending(): Boolean {
+        val throttledToVsync = winuiSynchronized(lock) {
+            if (isClosed || !pendingRender) {
+                return false
+            }
+            val throttled = pendingRenderThrottledToVsync
+            pendingRender = false
+            pendingRenderThrottledToVsync = true
+            throttled
+        }
+        if (isDisposed()) {
+            return false
+        }
         renderNow(throttledToVsync)
+        return true
     }
 
     override fun close() {
@@ -72,8 +98,9 @@ internal class WinUIRenderDispatcher(
             isClosed = true
             pendingRender = false
             pendingRenderThrottledToVsync = true
-            isPendingRenderEnqueued = false
+            isImmediateRenderEnqueued = false
         }
+        frameTicker.close()
     }
 
     private fun checkOpen() {
@@ -84,4 +111,10 @@ internal class WinUIRenderDispatcher(
         winuiSynchronized(lock) {
             isClosed
         } || isDisposed()
+
+    private companion object {
+        // Frames without a request before the ticker unsubscribes: keeps it subscribed through the
+        // short gaps of an animation that requests its next frame late.
+        const val IdleFramesBeforeDisarm = 2
+    }
 }
