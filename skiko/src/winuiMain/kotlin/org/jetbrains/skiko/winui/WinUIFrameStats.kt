@@ -55,7 +55,10 @@ internal class WinUIFrameStats(private val label: String) {
         phaseStart = now
     }
 
-    fun endFrame() {
+    private var lastSize = ""
+
+    fun endFrame(width: Int, height: Int) {
+        lastSize = "${width}x$height"
         val start = frameStart ?: return
         val elapsed = start.elapsedNow().inWholeMicroseconds
         frames += 1
@@ -77,7 +80,7 @@ internal class WinUIFrameStats(private val label: String) {
             "${phase.name.lowercase()}=${avg(totals[phase.ordinal], frames)}/${ms(maxima[phase.ordinal])}"
         }
         println(
-            "skiko-winui frame stats [$label]: fps=${(fps * 10).toInt() / 10.0} " +
+            "skiko-winui frame stats [$label $lastSize]: fps=${(fps * 10).toInt() / 10.0} " +
                 "frame=${avg(frameTotal, frames)}/${ms(frameMax)} " +
                 "interval=${avg(intervalTotal, intervals)}/${ms(intervalMax)} $phases (ms avg/max)",
         )

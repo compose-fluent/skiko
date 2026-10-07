@@ -23,6 +23,12 @@ internal object WinUISkiaLayerNative : WinUIDirect3DRenderBridge {
     ): WinUINativePointer =
         winuiCreateDirectXDeviceForSwapChainPanel(adapter, panelPointer)
 
+    override fun createDirectXDeviceSharing(
+        sourceDevice: WinUINativePointer,
+        panelPointer: WinUINativePointer,
+    ): WinUINativePointer =
+        winuiCreateDirectXDeviceSharing(sourceDevice, panelPointer)
+
     override fun getAdapterPtr(device: WinUINativePointer): WinUINativePointer =
         winuiGetAdapterPtr(device)
 
@@ -143,6 +149,12 @@ private external fun winuiChooseAdapter(adapterPriority: Int): WinUINativePointe
 @ExternalSymbolName("skiko_winui_createDirectXDeviceForSwapChainPanel")
 private external fun winuiCreateDirectXDeviceForSwapChainPanel(
     adapter: WinUINativePointer,
+    panelPointer: WinUINativePointer,
+): WinUINativePointer
+
+@ExternalSymbolName("skiko_winui_createDirectXDeviceSharing")
+private external fun winuiCreateDirectXDeviceSharing(
+    sourceDevice: WinUINativePointer,
     panelPointer: WinUINativePointer,
 ): WinUINativePointer
 

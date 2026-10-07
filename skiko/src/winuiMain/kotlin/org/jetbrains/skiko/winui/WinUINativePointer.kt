@@ -13,6 +13,12 @@ internal expect fun winuiMakeDirect3DContext(
     queuePtr: WinUINativePointer,
 ): DirectContext
 
+/** Frees the GPU resources of the cache of [context] that no frame used for [notUsedMillis]. */
+internal expect fun winuiPerformDeferredCleanup(context: DirectContext, notUsedMillis: Long)
+
+/** The GPU memory of [context], for the frame statistics; `null` where it is not known. */
+internal expect fun winuiDescribeGpuMemory(context: DirectContext): String?
+
 internal expect fun winuiMakeDirect3DRenderTarget(
     width: Int,
     height: Int,

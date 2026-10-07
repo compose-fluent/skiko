@@ -16,6 +16,11 @@ internal actual fun winuiMakeDirect3DContext(
         queuePtr = queuePtr,
     )
 
+// The JVM target keeps the resource cache of Skia as it is.
+internal actual fun winuiPerformDeferredCleanup(context: DirectContext, notUsedMillis: Long) = Unit
+
+internal actual fun winuiDescribeGpuMemory(context: DirectContext): String? = null
+
 internal actual fun winuiMakeDirect3DRenderTarget(
     width: Int,
     height: Int,

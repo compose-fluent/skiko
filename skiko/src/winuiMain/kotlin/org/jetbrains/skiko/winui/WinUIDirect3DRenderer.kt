@@ -15,6 +15,7 @@ internal class WinUIDirect3DRenderer(
 ) : AutoCloseable {
     private val bufferCount = 2
     private var device: WinUINativePointer = WinUINullPointer
+    private var shared: WinUISharedDirect3D? = null
     private var context: DirectContext? = null
     private var interop: Interop? = null
     private var surfaces = arrayOfNulls<Surface>(bufferCount)
@@ -79,8 +80,9 @@ internal class WinUIDirect3DRenderer(
         ) {
             frameStats?.beginFrame()
             bufferIndex = drawAndPresent(nanoTime, throttledToVsync)
-            frameStats?.endFrame()
+            frameStats?.endFrame(width, height)
         }
+        shared?.afterFrame()
         return WinUIPlatformRenderResult(
             width = width,
             height = height,
@@ -104,25 +106,26 @@ internal class WinUIDirect3DRenderer(
         if (device != WinUINullPointer) {
             return
         }
-        val adapter = bridge.chooseAdapter(adapterPriority = 0)
-        if (adapter == WinUINullPointer) {
-            throw WinUIRenderException(bridge.failureMessage("Failed to choose DirectX12 adapter for WinUI SwapChainPanel."))
+        val (sharedDevice, nativeDevice) = WinUISharedDirect3D.acquire(bridge, panelPointer) {
+            val adapter = bridge.chooseAdapter(adapterPriority = 0)
+            if (adapter == WinUINullPointer) {
+                throw WinUIRenderException(bridge.failureMessage("Failed to choose DirectX12 adapter for WinUI SwapChainPanel."))
+            }
+            val created = bridge.createDirectXDeviceForSwapChainPanel(adapter, panelPointer)
+            if (created == WinUINullPointer) {
+                throw WinUIRenderException(bridge.failureMessage("Failed to create DirectX12 device for WinUI SwapChainPanel."))
+            }
+            created
         }
-        device = bridge.createDirectXDeviceForSwapChainPanel(adapter, panelPointer)
-        if (device == WinUINullPointer) {
-            throw WinUIRenderException(bridge.failureMessage("Failed to create DirectX12 device for WinUI SwapChainPanel."))
-        }
+        shared = sharedDevice
+        device = nativeDevice
     }
 
     private fun createContext() {
         if (context != null) {
             return
         }
-        context = winuiMakeDirect3DContext(
-            adapterPtr = bridge.getAdapterPtr(device),
-            devicePtr = bridge.getDevicePtr(device),
-            queuePtr = bridge.getQueuePtr(device),
-        )
+        context = shared?.context()
     }
 
     private fun initializeSwapChain(width: Int, height: Int) {
@@ -233,8 +236,11 @@ internal class WinUIDirect3DRenderer(
         bridge.releaseBufferResources(device)
         interop?.isValid = false
         interop = null
-        context?.close()
+        // The context belongs to the device that the layers of this thread share: the last layer
+        // closes it.
         context = null
+        shared?.release(device)
+        shared = null
         bridge.disposeDevice(device)
         device = WinUINullPointer
         isSwapChainInitialized = false

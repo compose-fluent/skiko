@@ -8,6 +8,11 @@ internal interface WinUIDirect3DRenderBridge {
         adapter: WinUINativePointer,
         panelPointer: WinUINativePointer,
     ): WinUINativePointer
+    /** A device for [panelPointer] on the Direct3D device and queue of [sourceDevice]. */
+    fun createDirectXDeviceSharing(
+        sourceDevice: WinUINativePointer,
+        panelPointer: WinUINativePointer,
+    ): WinUINativePointer
     fun getAdapterPtr(device: WinUINativePointer): WinUINativePointer
     fun getDevicePtr(device: WinUINativePointer): WinUINativePointer
     fun getQueuePtr(device: WinUINativePointer): WinUINativePointer

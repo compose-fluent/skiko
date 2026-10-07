@@ -524,6 +524,7 @@ namespace {
 extern "C" {
     void *skiko_winui_chooseAdapter(int32_t adapterPriority);
     void *skiko_winui_createDirectXDeviceForSwapChainPanel(void *adapterPtr, void *panelPtr);
+    void *skiko_winui_createDirectXDeviceSharing(void *sourceDevicePtr, void *panelPtr);
     void *skiko_winui_getAdapterPtr(void *devicePtr);
     void *skiko_winui_getDevicePtr(void *devicePtr);
     void *skiko_winui_getQueuePtr(void *devicePtr);
@@ -562,6 +563,22 @@ extern "C" {
         );
         if (device == nullptr) {
             throwWinUIException(env, __FUNCTION__, "Failed to create Direct3D device for SwapChainPanel");
+        }
+        return toJavaPointer(device);
+    }
+
+    JNIEXPORT jlong JNICALL Java_org_jetbrains_skiko_winui_WinUISkiaLayerNative_createDirectXDeviceSharing(
+        JNIEnv *env,
+        jobject,
+        jlong sourceDevicePtr,
+        jlong panelPtr
+    ) {
+        void *device = skiko_winui_createDirectXDeviceSharing(
+            fromJavaPointer<void *>(sourceDevicePtr),
+            fromJavaPointer<void *>(panelPtr)
+        );
+        if (device == nullptr) {
+            throwWinUIException(env, __FUNCTION__, "Failed to share a Direct3D device with a SwapChainPanel");
         }
         return toJavaPointer(device);
     }
@@ -892,6 +909,27 @@ extern "C" {
         result->queue = queue;
         result->panelNative = panelNative;
 
+        return toNativePointer(result);
+    }
+
+    // A device for another SwapChainPanel on the Direct3D device and queue of an existing one: the
+    // swap chain, its buffers and the fence are its own, the device and queue are shared.
+    void *skiko_winui_createDirectXDeviceSharing(void *sourceDevicePtr, void *panelPtr) {
+        clearLastError();
+        WinUIDirectXDevice *source = fromNativePointer<WinUIDirectXDevice *>(sourceDevicePtr);
+        if (source == nullptr || panelPtr == nullptr) {
+#ifdef SKIKO_WINUI_MINGW
+            setLastErrorMessage(__FUNCTION__, "Source device or SwapChainPanel pointer is null");
+#endif
+            return nullptr;
+        }
+        ISwapChainPanelNative *panelNativeRaw = fromNativePointer<ISwapChainPanelNative *>(panelPtr);
+        panelNativeRaw->AddRef();
+        WinUIDirectXDevice *result = new WinUIDirectXDevice();
+        result->adapter = source->adapter;
+        result->device = source->device;
+        result->queue = source->queue;
+        result->panelNative.Attach(panelNativeRaw);
         return toNativePointer(result);
     }
 
