@@ -1,14 +1,15 @@
 package org.jetbrains.skiko
 
+import org.jetbrains.kotlin.descriptors.SourceElement
 import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.expressions.IrConst
-import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
+import org.jetbrains.kotlin.ir.expressions.IrExpression
+import org.jetbrains.kotlin.ir.expressions.IrAnnotation
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
-import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolOwner
+import org.jetbrains.kotlin.ir.expressions.impl.IrAnnotationImpl
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.util.constructors
 import org.jetbrains.kotlin.ir.util.defaultType
@@ -26,66 +27,70 @@ internal class ImportGeneratorTransformer(private val pluginContext: IrPluginCon
     fun getExportSymbols(): List<String> = exportSymbols
 
     @Suppress("UNCHECKED_CAST")
-    private fun IrConstructorCall.getStringValue(value: String): String =
+    private fun IrAnnotation.getStringValue(value: String): String =
         (getValueArgument(Name.identifier(value)) as IrConst).value as String
 
-    @OptIn(UnsafeDuringIrConstructionAPI::class, DeprecatedForRemovalCompilerApi::class)
-    private fun IrFunction.addWasmImportAnnotation(name: String) {
-        val annotationClass = pluginContext.referenceClass(
-            ClassId.fromString("kotlin/wasm/WasmImport")
-        ) ?: return
-
+    @Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
+    @OptIn(UnsafeDuringIrConstructionAPI::class)
+    private fun IrFunction.makeAnnotation(classId: ClassId, arguments: Map<Name, IrExpression>): IrAnnotation? {
+        val annotationClass = pluginContext.referenceClass(classId) ?: return null
         val ctor = annotationClass.owner.constructors.first()
 
-        val annotationCall = IrConstructorCallImpl.fromSymbolOwner(
+        return IrAnnotationImpl(
+            constructorIndicator = null,
             startOffset = startOffset,
             endOffset = endOffset,
             type = annotationClass.owner.defaultType,
-            constructorSymbol = ctor.symbol,
-        )
+            origin = null,
+            symbol = ctor.symbol,
+            source = SourceElement.NO_SOURCE,
+            constructorTypeArgumentsCount = 0,
+            classId = classId,
+            argumentMapping = arguments,
+        ).also {
+            it.initializeTargetShapeFromSymbol()
+            arguments.entries.forEachIndexed { index, entry ->
+                it.arguments[index] = entry.value
+            }
+        }
+    }
 
+    @OptIn(UnsafeDuringIrConstructionAPI::class, DeprecatedForRemovalCompilerApi::class)
+    private fun IrFunction.addWasmImportAnnotation(name: String) {
         val moduleName = if (name.startsWith("org_jetbrains_skiko_tests_")) "./skiko-test.mjs" else "./skiko.mjs"
 
-        annotationCall.putValueArgument(0, IrConstImpl.string(
-            startOffset,
-            endOffset,
-            pluginContext.irBuiltIns.stringType,
-            moduleName
-        ))
-
-        annotationCall.putValueArgument(1, IrConstImpl.string(
-            startOffset,
-            endOffset,
-            pluginContext.irBuiltIns.stringType,
-            name
-        ))
-
-        annotations += annotationCall
+        annotations += makeAnnotation(
+            ClassId.fromString("kotlin/wasm/WasmImport"),
+            linkedMapOf(
+                Name.identifier("module") to IrConstImpl.string(
+                    startOffset,
+                    endOffset,
+                    pluginContext.irBuiltIns.stringType,
+                    moduleName
+                ),
+                Name.identifier("name") to IrConstImpl.string(
+                    startOffset,
+                    endOffset,
+                    pluginContext.irBuiltIns.stringType,
+                    name
+                ),
+            ),
+        ) ?: return
     }
 
     @OptIn(UnsafeDuringIrConstructionAPI::class, DeprecatedForRemovalCompilerApi::class)
     private fun IrFunction.addJsNameAnnotation(name: String) {
-        val annotationClass = pluginContext.referenceClass(
-            ClassId.fromString("kotlin/js/JsName")
+        annotations += makeAnnotation(
+            ClassId.fromString("kotlin/js/JsName"),
+            linkedMapOf(
+                Name.identifier("name") to IrConstImpl.string(
+                    startOffset,
+                    endOffset,
+                    pluginContext.irBuiltIns.stringType,
+                    name
+                ),
+            ),
         ) ?: return
-
-        val ctor = annotationClass.owner.constructors.first()
-
-        val annotationCall = IrConstructorCallImpl.fromSymbolOwner(
-            startOffset = startOffset,
-            endOffset = endOffset,
-            type = annotationClass.owner.defaultType,
-            constructorSymbol = ctor.symbol,
-        )
-
-        annotationCall.putValueArgument(0, IrConstImpl.string(
-            startOffset,
-            endOffset,
-            pluginContext.irBuiltIns.stringType,
-            name
-        ))
-
-        annotations += annotationCall
     }
 
     override fun visitFunction(declaration: IrFunction): IrStatement {

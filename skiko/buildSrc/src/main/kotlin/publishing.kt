@@ -45,6 +45,7 @@ private class SkikoPublishingContext(
 }
 
 fun SkikoProjectContext.declarePublications() {
+    if (project.findProperty("skiko.winui.enabled") == "true") return
     val ctx = SkikoPublishingContext(this)
     ctx.configurePublishingRepositories()
     ctx.configurePublicationDefaults()

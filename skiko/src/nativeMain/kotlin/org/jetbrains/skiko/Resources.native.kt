@@ -13,7 +13,7 @@ actual suspend fun loadBytesFromPath(path: String): ByteArray {
 
     val size = file.let {
         fseek(it, 0, SEEK_END)
-        val size = ftell(it)
+        val size = ftell(it).toLong()
         fseek(it, 0, SEEK_SET)
         size
     }

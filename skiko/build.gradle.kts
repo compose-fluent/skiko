@@ -209,8 +209,8 @@ repositories {
 
 kotlin {
     compilerOptions {
-        languageVersion.set(KotlinVersion.KOTLIN_2_2)
-        apiVersion.set(KotlinVersion.KOTLIN_2_2)
+        languageVersion.set(skikoKotlinLanguageVersion)
+        apiVersion.set(skikoKotlinApiVersion)
         freeCompilerArgs.add(
             "-opt-in=org.jetbrains.skiko.InternalSkikoApi"
         )
@@ -302,6 +302,9 @@ kotlin {
         skikoProjectContext.configureNativeTarget(OS.Linux, Arch.X64, linuxX64())
         skikoProjectContext.configureNativeTarget(OS.Linux, Arch.Arm64, linuxArm64())
     }
+    if (supportNativeWindows) {
+        mingwX64()
+    }
     if (supportNativeIosArm64) {
         skikoProjectContext.configureNativeTarget(OS.IOS, Arch.Arm64, iosArm64())
     }
@@ -383,6 +386,10 @@ kotlin {
         }
         configureIOSTestsWithMetal(project)
     }
+}
+
+if (providers.gradleProperty("skiko.winui.enabled").map(String::toBoolean).getOrElse(false)) {
+    apply(from = "gradle/winui.gradle.kts")
 }
 
 /**

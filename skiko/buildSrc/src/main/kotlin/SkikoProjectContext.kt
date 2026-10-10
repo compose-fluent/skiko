@@ -180,7 +180,8 @@ val Project.supportAndroid: Boolean
     get() = findProperty(SkikoGradleProperties.ANDROID_ENABLED) == "true" // || isInIdea
 
 val Project.supportAwt: Boolean
-    get() = findProperty(SkikoGradleProperties.AWT_ENABLED) == "true" || isInIdea
+    get() = !(name == "skiko" && findProperty("skiko.winui.enabled") == "true") &&
+        (findProperty(SkikoGradleProperties.AWT_ENABLED) == "true" || isInIdea)
 
 val Project.supportAllNative: Boolean
     get() = findProperty(SkikoGradleProperties.NATIVE_ENABLED) == "true" || isInIdea
@@ -221,8 +222,11 @@ val Project.supportNativeMac: Boolean
 val Project.supportNativeLinux: Boolean
     get() = supportAllNative || findProperty(SkikoGradleProperties.NATIVE_LINUX) == "true" || isInIdea
 
+val Project.supportNativeWindows: Boolean
+    get() = supportAllNative || findProperty(SkikoGradleProperties.NATIVE_WINDOWS) == "true" || isInIdea
+
 val Project.supportAnyNative: Boolean
-    get() = supportAllNative || supportAnyNativeIos || supportNativeMac || supportNativeLinux
+    get() = supportAllNative || supportAnyNativeIos || supportNativeMac || supportNativeLinux || supportNativeWindows
 
 val Project.supportWeb: Boolean
     get() = findProperty(SkikoGradleProperties.WASM_ENABLED) == "true" || isInIdea

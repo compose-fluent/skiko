@@ -6,7 +6,6 @@ import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
-import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
 plugins {
     kotlin("multiplatform")
@@ -18,14 +17,17 @@ if (supportAndroid) {
 }
 
 repositories {
+    maven("https://central.sonatype.com/repository/maven-snapshots/") {
+        mavenContent { snapshotsOnly() }
+    }
     mavenCentral()
     google()
 }
 
 kotlin {
     compilerOptions {
-        languageVersion.set(KotlinVersion.KOTLIN_2_2)
-        apiVersion.set(KotlinVersion.KOTLIN_2_2)
+        languageVersion.set(skikoKotlinLanguageVersion)
+        apiVersion.set(skikoKotlinApiVersion)
     }
 
     applyHierarchyTemplate(skikoSourceSetHierarchyTemplate)
@@ -68,6 +70,12 @@ kotlin {
     if (supportNativeLinux) {
         linuxX64()
         linuxArm64()
+    }
+    if (
+        providers.gradleProperty("skiko.winui.enabled").map(String::toBoolean).getOrElse(false) &&
+        providers.gradleProperty("skiko.winui.mingw.enabled").map(String::toBoolean).getOrElse(true)
+    ) {
+        mingwX64("winuiMingw")
     }
     if (supportNativeIosArm64) {
         iosArm64()

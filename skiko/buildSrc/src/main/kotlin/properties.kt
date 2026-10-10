@@ -1,6 +1,7 @@
 import org.apache.tools.ant.taskdefs.condition.Os
 import org.gradle.api.GradleException
 import org.gradle.api.Project
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import java.io.File
 
 enum class OS(
@@ -122,15 +123,26 @@ fun targetId(os: OS, arch: Arch) = "${os.id}-${arch.id}"
 
 val jdkHome = System.getProperty("java.home") ?: error("'java.home' is null")
 
+val Project.skikoKotlinLanguageVersion: KotlinVersion
+    get() = KotlinVersion.fromVersion(providers.gradleProperty("skiko.kotlin.language.version").getOrElse("2.2"))
+
+val Project.skikoKotlinApiVersion: KotlinVersion
+    get() = KotlinVersion.fromVersion(providers.gradleProperty("skiko.kotlin.api.version").getOrElse("2.2"))
+
 class SkikoProperties(private val myProject: Project) {
+    private val winuiRelease = if (myProject.rootProject.findProperty("skiko.winui.enabled") == "true") {
+        SkikoWinuiRelease.load(myProject.rootProject)
+    } else null
+
     val isTeamcityCIBuild: Boolean
         get() = myProject.hasProperty("teamcity")
 
-    val planeDeployVersion: String = myProject.property("deploy.version") as String
+    val planeDeployVersion: String = winuiRelease?.version ?: myProject.property("deploy.version") as String
 
     val deployVersion: String
         get() {
-            val main = if (isRelease) planeDeployVersion else "$planeDeployVersion-SNAPSHOT"
+            val main = winuiRelease?.buildVersion(myProject.rootProject)
+                ?: if (isRelease) planeDeployVersion else "$planeDeployVersion-SNAPSHOT"
             var metadata = if (buildType == SkiaBuildType.DEBUG) "+debug" else ""
             metadata += if (isWasmBuildWithProfiling) "+profiling" else ""
             return main + metadata
@@ -257,6 +269,7 @@ class SkikoProperties(private val myProject: Project) {
 }
 
 object SkikoGradleProperties {
+    const val NATIVE_WINDOWS = "skiko.native.windows.enabled"
     const val AWT_ENABLED = "skiko.awt.enabled"
     const val WASM_ENABLED = "skiko.wasm.enabled"
     const val ANDROID_ENABLED = "skiko.android.enabled"

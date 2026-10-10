@@ -12,4 +12,9 @@ deploy.bat
 skiko/src/jvmMain/java
 .cache
 .clangd
+.agent_tmp
+**/__pycache__/
+AGENTS.md
+KOTLIN_WINRT_UPSTREAM_ISSUE.md
+hs_err_pid*.log
 **/kotlin-js-store/
