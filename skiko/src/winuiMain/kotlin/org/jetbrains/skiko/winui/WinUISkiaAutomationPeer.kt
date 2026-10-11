@@ -13,14 +13,25 @@ internal class WinUISkiaAutomationPeer(
     private val layer: WinUISkiaLayer,
     private val nodeId: Long? = null,
 ) : AutomationPeer() {
+    private var cachedChildIds: List<Long> = emptyList()
+    private var cachedChildren: MutableList<AutomationPeer> = mutableListOf()
+    private val cachedPatterns = mutableMapOf<PatternInterface, WinUIAccessibilityAutomationPatternProvider>()
+
     private val model: WinUIAccessibilityAutomationModel
         get() = layer.accessibilityAutomationModel
 
     private val node: WinUIAccessibilityAutomationNode?
         get() = nodeId?.let(model::node) ?: model.root()
 
-    override fun getPatternCore(patternInterface: PatternInterface): Any? =
-        node?.nodeId?.let { id -> model.patternProvider(id, patternInterface) }
+    override fun getPatternCore(patternInterface: PatternInterface): Any? {
+        val currentNode = node ?: return null
+        if (patternInterface !in currentNode.patterns) return null
+        return cachedPatterns[patternInterface]?.takeIf { it.nodeId == currentNode.nodeId }
+            ?: WinUIAccessibilityAutomationPatternProvider(
+                nodeId = currentNode.nodeId,
+                pattern = patternInterface,
+            ).also { cachedPatterns[patternInterface] = it }
+    }
 
     override fun getAutomationControlTypeCore(): AutomationControlType =
         node?.controlType ?: AutomationControlType.Custom
@@ -31,12 +42,14 @@ internal class WinUISkiaAutomationPeer(
     override fun getBoundingRectangleCore(): Rect =
         node?.bounds?.toWinRTRect() ?: Rect(0f, 0f, 0f, 0f)
 
-    override fun getChildrenCore(): MutableList<AutomationPeer> =
-        node
-            ?.childIds
-            ?.map { childId -> WinUISkiaAutomationPeer(layer, childId) }
-            ?.toMutableList()
-            ?: mutableListOf()
+    override fun getChildrenCore(): MutableList<AutomationPeer> {
+        val childIds = node?.childIds.orEmpty()
+        if (childIds != cachedChildIds) {
+            cachedChildIds = childIds
+            cachedChildren = childIds.map { childId -> layer.accessibilityPeer(childId) }.toMutableList()
+        }
+        return cachedChildren
+    }
 
     override fun navigateCore(direction: AutomationNavigationDirection): Any? {
         val id = node?.nodeId ?: return null
@@ -48,7 +61,7 @@ internal class WinUISkiaAutomationPeer(
             AutomationNavigationDirection.PreviousSibling -> siblingOf(id, offset = -1)
             else -> null
         } ?: return null
-        return WinUISkiaAutomationPeer(layer, target.nodeId)
+        return layer.accessibilityPeer(target.nodeId)
     }
 
     override fun getClassNameCore(): String =
@@ -103,13 +116,13 @@ internal class WinUISkiaAutomationPeer(
         lastPeerFromPoint = point
         peerFromPointCallCount += 1
         return model.hitTest(point.x, point.y)?.nodeId?.let { hitNodeId ->
-            WinUISkiaAutomationPeer(layer, hitNodeId)
+            layer.accessibilityPeer(hitNodeId)
         } ?: this
     }
 
     override fun getFocusedElementCore(): Any? =
         model.focusedNode()?.nodeId?.let { focusedNodeId ->
-            WinUISkiaAutomationPeer(layer, focusedNodeId)
+            layer.accessibilityPeer(focusedNodeId)
         }
 
     override fun getLiveSettingCore(): AutomationLiveSetting =

@@ -1,5 +1,6 @@
 package org.jetbrains.skiko.winui
 
+import io.github.composefluent.winrt.runtime.IWinRTObject
 import io.github.composefluent.winrt.runtime.WinAppHostConfiguration
 import io.github.composefluent.winrt.runtime.WinAppPackageIdentity
 import io.github.composefluent.winrt.runtime.WindowsAppSdkBootstrap
@@ -777,6 +778,48 @@ private class SmokeSession(
             ?: error("Expected focused automation element to be a peer.")
         check(focusedPeer.getName() == "Smoke button" && focusedPeer.hasKeyboardFocus()) {
             "Expected focused automation peer to be Smoke button."
+        }
+        fun samePeer(first: AutomationPeer, second: AutomationPeer): Boolean =
+            (first as IWinRTObject).nativeObject.sameIdentity((second as IWinRTObject).nativeObject)
+
+        val invokePattern = firstChild.getPattern(PatternInterface.Invoke)
+            ?: error("Expected the button's Invoke pattern.")
+        val textPattern = nextSibling.getPattern(PatternInterface.Text)
+            ?: error("Expected the text node's Text pattern.")
+        check(firstChild.getPattern(PatternInterface.Value) == null) {
+            "Expected unsupported patterns to return null."
+        }
+        repeat(100) {
+            check(firstChild.getPattern(PatternInterface.Invoke) === invokePattern) {
+                "Repeated Invoke queries must preserve the authored pattern provider."
+            }
+            check(nextSibling.getPattern(PatternInterface.Text) === textPattern) {
+                "Repeated Text queries must preserve the authored pattern provider."
+            }
+            val repeatedChildren = rootPeer.getChildren()
+            check(repeatedChildren.size == children.size && children.indices.all { index ->
+                samePeer(repeatedChildren[index], children[index])
+            }) {
+                "Repeated UIA queries must preserve child peer COM identities."
+            }
+            val repeatedFirstChild = rootPeer.navigate(AutomationNavigationDirection.FirstChild)
+                .toAutomationPeerOrNull() ?: error("Expected repeated first-child navigation.")
+            check(samePeer(repeatedFirstChild, firstChild)) {
+                "Child navigation must reuse the peer returned by getChildren."
+            }
+            val parent = firstChild.navigate(AutomationNavigationDirection.Parent)
+                .toAutomationPeerOrNull() ?: error("Expected parent navigation.")
+            check(samePeer(parent, rootPeer)) {
+                "Parent navigation must return the original root peer."
+            }
+            check(samePeer(rootPeer.getPeerFromPoint(Point(24f, 24f)), firstChild)) {
+                "Hit testing must reuse the peer returned by child navigation."
+            }
+            val focused = rootPeer.getFocusedElement().toAutomationPeerOrNull()
+                ?: error("Expected repeated focus query.")
+            check(samePeer(focused, firstChild)) {
+                "Focus queries must reuse the peer returned by child navigation."
+            }
         }
         println("skiko-winui-smoke: automation peer verified")
     }

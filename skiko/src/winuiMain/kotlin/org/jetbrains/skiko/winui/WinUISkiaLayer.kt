@@ -36,6 +36,8 @@ class WinUISkiaLayer(
     private val platformInterop = WinUISkiaLayerPlatformInterop(this, panel)
     private val inputInterop = createWinUIInputInterop(this, panel)
     private val accessibilityInterop = WinUIAccessibilityInterop(hostPanel.component)
+    private var rootAccessibilityPeer: WinUISkiaAutomationPeer? = null
+    private val accessibilityPeers = mutableMapOf<Long, WinUISkiaAutomationPeer>()
     private val renderDispatcher = WinUIRenderDispatcher(
         dispatcherQueue = dispatcherQueue,
         isDisposed = { isDisposed },
@@ -201,6 +203,7 @@ class WinUISkiaLayer(
                 newSnapshot = snapshot,
             ),
         )
+        pruneAccessibilityPeers()
     }
 
     override fun notifyAccessibilityChanged(change: WinUIAccessibilityChange) {
@@ -209,6 +212,7 @@ class WinUISkiaLayer(
             snapshot = accessibilityProvider?.snapshot(),
             change = change,
         )
+        pruneAccessibilityPeers()
     }
 
     override fun accessibilityRootNode(): WinUIAccessibilityNode? {
@@ -290,6 +294,25 @@ class WinUISkiaLayer(
 
     internal val automationPeerCreateCount: Int
         get() = hostPanel.automationPeerCreateCount
+
+    // UI Automation navigates between the same logical nodes repeatedly. Reusing their COM
+    // identities avoids retaining a new authored peer and child collection on every query.
+    internal fun accessibilityPeer(nodeId: Long? = null): WinUISkiaAutomationPeer {
+        if (nodeId == null || nodeId == accessibilityInterop.rootNode()?.id) {
+            return rootAccessibilityPeer ?: WinUISkiaAutomationPeer(this).also {
+                rootAccessibilityPeer = it
+            }
+        }
+        return accessibilityPeers.getOrPut(nodeId) {
+            WinUISkiaAutomationPeer(this, nodeId)
+        }
+    }
+
+    private fun pruneAccessibilityPeers() {
+        accessibilityPeers.keys.removeAll { nodeId ->
+            accessibilityInterop.findNode(nodeId) == null
+        }
+    }
 
     override val renderDiagnostics: WinUILayerRenderDiagnostics
         get() = WinUILayerRenderDiagnostics(
@@ -403,6 +426,8 @@ class WinUISkiaLayer(
         unloadedToken = null
         inputInterop.close()
         accessibilityInterop.close()
+        accessibilityPeers.clear()
+        rootAccessibilityPeer = null
         renderDispatcher.close()
         platformInterop.close()
         lastRenderedState = null

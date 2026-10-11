@@ -43,7 +43,7 @@ class WinUISkiaHostPanel : Grid(), WinUISkiaHost {
 
     override fun onCreateAutomationPeer(): AutomationPeer {
         automationPeerCreatedCount += 1
-        return layer?.let(::WinUISkiaAutomationPeer) ?: super.onCreateAutomationPeer()
+        return layer?.accessibilityPeer() ?: super.onCreateAutomationPeer()
     }
 
     override fun measureOverride(availableSize: Size): Size {
