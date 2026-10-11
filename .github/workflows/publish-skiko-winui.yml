@@ -153,7 +153,12 @@ jobs:
         shell: bash
         run: |
           for attempt in 1 2 3; do
-            gradle -p . unzipSkiaReleaseWindowsX64 --no-daemon --stacktrace --no-configuration-cache --max-workers=1 && exit 0
+            gradle -p . unzipSkiaReleaseWindowsX64 --no-daemon --stacktrace --no-configuration-cache --max-workers=1 \
+              -Pskiko.winui.enabled=true \
+              -Pskiko.winui.jvmTarget=25 \
+              -Pskiko.winui.jvmToolchain=25 \
+              -Pskiko.winui.mingw.enabled=true \
+              -Pskiko.winui.skipSamples=true && exit 0
             if [ "$attempt" = "3" ]; then
               exit 1
             fi
