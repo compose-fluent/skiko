@@ -135,6 +135,33 @@ Maven Central now serves the kotlin-winrt `0.1.0` toolkit, runtime, authoring,
 and JVM/MinGW POMs (verified on 2026-10-11). The earlier unsigned SNAPSHOT-based
 artifacts remain suitable only for rehearsal and downstream integration checks.
 
+## 0.150.1-alpha1 validation
+
+The release includes the shared accessibility peer/provider reuse fix for both
+backends. On Windows x64 with JDK 25.0.4.7, Visual Studio 2026 MSVC x64,
+Windows SDK 10.0.26100.0, and stable kotlin-winrt 0.1.0:
+
+- Passed: all 27 release-tool tests, including the first release's exact body.
+- Passed: 9 focused JVM tests and the C++ indirect pointer parser/state tests.
+- Passed: `runWinuiJvmSmoke`, including rendering, resize, focus, D3D12 interop,
+  close, and 100 repeated UI Automation peer/provider identity checks.
+- Passed: all 411 Skia JVM classes/companions match the official 0.150.1 public
+  JVM signatures after the accessibility fix and dependency update.
+- Passed: both source-set boundary checks, `winui-mingw` main/test compilation,
+  and all 5 MinGW native bridge smoke tests with the shared accessibility fix.
+- The window-hosted MinGW sample was not run for this release validation.
+
+Commands from the repository root (JDK 25 and NuGet CLI on PATH). The local run
+also supplied `-Pskiko.winui.windowsSkiaDir=<unpacked m150 Skia directory>` to
+reuse the verified upstream package:
+
+```powershell
+python -B -m unittest discover -s scripts/tests
+python scripts/skiko_winui_release.py verify --fetch-upstream
+.\gradlew.bat '-Pskiko.winui.enabled=true' '-Pskiko.winui.mingw.enabled=false' '-Pskiko.winui.skipSamples=true' '-PkotlinWinRT.version=0.1.0' :skiko:runWinuiIndirectPointerNativeTests :skiko:winuiJvmTest --tests 'org.jetbrains.skiko.winui.*' :skiko:runWinuiJvmSmoke --no-configuration-cache --no-daemon --max-workers=1
+.\gradlew.bat '-Pskiko.winui.enabled=true' '-Pskiko.winui.mingw.enabled=true' '-Pskiko.winui.skipSamples=true' '-PkotlinWinRT.version=0.1.0' :skiko:checkWinuiAwtFreeBoundary :skiko:checkWinuiJvmApiClasspathBoundary :skiko:compileKotlinWinuiMingw :skiko:winuiMingwTest --tests 'org.jetbrains.skiko.winui.WinUIMingwNativeBridgeSmokeTest' --no-configuration-cache --no-daemon --max-workers=1
+```
+
 ## Prepare artifacts locally
 
 Host requirements: Windows x64, JDK 25, Visual Studio/MSVC x64 build tools,
