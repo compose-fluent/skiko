@@ -1,1 +1,1 @@
-这是第一个 Skiko WinUI 版本，基于 Skiko 0.150.1。
+This is the first Skiko WinUI release, based on Skiko 0.150.1.
