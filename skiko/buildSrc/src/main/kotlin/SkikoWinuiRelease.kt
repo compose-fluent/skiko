@@ -35,7 +35,7 @@ data class SkikoWinuiRelease(
                 required("upstream.commit"),
             ).also {
                 if (!it.upstreamVersion.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+")) ||
-                    !it.version.matches(Regex("${Regex.escape(it.upstreamVersion)}(?:-(?:alpha|beta|rc)[0-9]{2})?")) ||
+                    !it.version.matches(Regex("${Regex.escape(it.upstreamVersion)}(?:-(?:alpha|beta|rc)[0-9]+)?")) ||
                     it.upstreamTag != "v${it.upstreamVersion}" ||
                     !it.upstreamCommit.matches(Regex("[0-9a-f]{40}"))) {
                     throw GradleException("Invalid version/tag/commit mapping in $file")

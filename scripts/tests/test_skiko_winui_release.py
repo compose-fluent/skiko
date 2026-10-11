@@ -106,7 +106,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_rejects_inconsistent_release_mapping(self):
         for overrides in ({"release.version": "0.155.0-alpha01"},
-                          {"release.version": "0.154.0-alpha1"},
+                          {"release.version": "0.154.0-alpha"},
                           {"upstream.tag": "v0.154.0-alpha01"},
                           {"upstream.commit": "shortsha"},
                           {"kotlinWinRT.release.version": "0.1.0-SNAPSHOT"}):
@@ -118,6 +118,13 @@ class ReleaseTests(unittest.TestCase):
     def test_accepts_stable_release(self):
         self.write_config(**{"release.version": "0.154.0"})
         self.assertEqual(release_tool.Release.load(self.root).metadata("release")["prerelease"], "false")
+
+    def test_accepts_single_digit_prerelease(self):
+        self.write_config(**{"release.version": "0.154.0-alpha1"})
+        release = release_tool.Release.load(self.root)
+        self.assertEqual(release.version, "0.154.0-alpha1")
+        self.assertEqual(release.tag, "skiko-winui/v0.154.0-alpha1")
+        self.assertEqual(release.metadata("release")["prerelease"], "true")
 
     def test_verifies_merged_upstream_and_exact_release_tag(self):
         self.assertEqual(release_tool.verify(self.root, self.release, require_tag=True),

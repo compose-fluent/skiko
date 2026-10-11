@@ -67,7 +67,7 @@ class Release:
         if any(not properties.get(key) for key in keys):
             raise ReleaseError(f"Missing release/upstream identity in {path}")
         release = cls(*(properties[key] for key in keys))
-        version_pattern = re.escape(release.upstream_version) + r"(?:-(?:alpha|beta|rc)[0-9]{2})?"
+        version_pattern = re.escape(release.upstream_version) + r"(?:-(?:alpha|beta|rc)[0-9]+)?"
         if (not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", release.upstream_version)
                 or not re.fullmatch(version_pattern, release.version)
                 or release.upstream_tag != f"v{release.upstream_version}"

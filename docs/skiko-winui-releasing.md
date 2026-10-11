@@ -4,15 +4,15 @@
 version and upstream identity. This branch prepares the CMP WinUI 1.12.1 release:
 
 ```properties
-release.version=0.150.1-alpha01
+release.version=0.150.1-alpha1
 upstream.version=0.150.1
 upstream.tag=v0.150.1
 upstream.commit=3956e988e6e93eaf1ee985d725049443e7845807
 kotlinWinRT.release.version=0.1.0
 ```
 
-The branch is `codex/skiko-winui-0.150.1-cmp-1.12.1`. Its first parent is the
-official `v0.150.1` tag. The merge imports WinUI changes through `winui_dev`
+The branch is `release-0.150.1`. The integration merge starts from the
+official `v0.150.1` tag and imports WinUI changes through `winui_dev`
 commit `863c2e96d54edc61b901a2821a9f40b9bd1d6dd2`, while keeping the upstream
 Skiko API and Skia `m150-1f14f1166a` from `v0.150.1`. Newer upstream renderer,
 Skottie extraction, Graphite, Vulkan, and m151–m154 changes are excluded from
@@ -28,8 +28,8 @@ default module name would change the JVM names of internal accessors used by
 inline API. Public JVM signatures for all 411 Skia classes and companions in
 the official `skiko-awt:0.150.1` jar were compared against this build and match.
 
-The pinned upstream commit is integrated on this branch. Formal publication
-still requires the stable kotlin-winrt dependency and runtime validation below.
+The pinned upstream commit is integrated on this branch. The release uses
+stable kotlin-winrt `0.1.0` and the source/runtime checks below.
 The release checks reject an unmerged baseline; resolve and integrate the official
 upstream tag when selecting a different release baseline.
 
@@ -44,6 +44,8 @@ upstream tag when selecting a different release baseline.
   version from upstream's placeholder `deploy.version=0.0.0`.
 - The release tag is derived as `skiko-winui/v<release.version>`. The namespace
   separates fork releases from imported upstream tags.
+- Prerelease numbers may use one or more digits, including the selected
+  `0.150.1-alpha1` version and older two-digit versions.
 - Every WinUI POM records `skiko.upstream.version`, `skiko.upstream.tag`, and
   `skiko.upstream.commit`. Release POMs also record the fork release tag in SCM.
 - Windows native libraries and ICU data use the directory produced by
@@ -62,14 +64,12 @@ Both `winui-jvm` and `winui-mingw` share this release identity. The Maven group 
 | `skiko-winui-mingw` | `winui-mingw` / `mingwX64` KLIB |
 | `skiko-winui-mingw-runtime` | MinGW runtime assets |
 
-The first formal release waits for **kotlin-winrt `0.1.0`**. The release target
-is pinned in `kotlinWinRT.release.version`; the actual build still uses
-`kotlinWinRT.version=0.1.0-SNAPSHOT` from root `gradle.properties` during the
-rehearsal. After kotlin-winrt publishes `0.1.0`, update that build property and
-rebuild both paths. Do not reuse the SNAPSHOT-based rehearsal artifacts for a
-formal release. Publication checks inspect both configuration and packaged
-POM/Gradle dependency versions; signing a SNAPSHOT-based bundle does not make it
-eligible for publication.
+The formal release uses **kotlin-winrt `0.1.0`**, now available from Maven Central.
+Both `kotlinWinRT.release.version` and root `kotlinWinRT.version` select `0.1.0`.
+Both backend paths must be rebuilt with this stable dependency; the earlier
+`0.150.1-alpha01` rehearsal used `0.1.0-SNAPSHOT`. Publication checks inspect
+both configuration and packaged POM/Gradle dependency versions; signing an old
+SNAPSHOT-based bundle does not make it eligible for publication.
 
 The upstream tag/SHA fixes the source being integrated. The final fork commit
 and artifact hashes in `release-manifest.json` identify exactly what was built.
@@ -85,7 +85,7 @@ branch), preserving the fork's changes. `master` and `origin/master` are not
 updated by these commands:
 
 ```powershell
-git switch codex/skiko-winui-0.150.1-cmp-1.12.1
+git switch release-0.150.1
 git fetch --no-tags https://github.com/JetBrains/skiko.git refs/tags/v0.150.1:refs/skiko-winui/upstream/v0.150.1
 git rev-parse 'refs/skiko-winui/upstream/v0.150.1^{commit}'
 python scripts/skiko_winui_release.py verify --fetch-upstream
@@ -105,7 +105,7 @@ exact tag, including when the workflow is dispatched manually.
 `--for-publish` additionally requires the committed kotlin-winrt build version
 to match the pinned stable release dependency; it includes `--require-tag`.
 
-## CMP WinUI 1.12.1 validation
+## CMP WinUI 1.12.1 baseline rehearsal validation
 
 Validated on Windows x64 with JDK 25.0.4.7, Visual Studio 2026 MSVC x64 tools,
 Windows SDK 10.0.26100.0, Kotlin 2.4.0, and kotlin-winrt 0.1.0-SNAPSHOT.
@@ -131,10 +131,9 @@ python scripts/skiko_winui_release.py verify --fetch-upstream
 .\gradlew.bat '-Pskiko.winui.enabled=true' '-Pskiko.winui.mingw.enabled=true' '-Pskiko.winui.skipSamples=true' :skiko:runWinuiIndirectPointerNativeTests :skiko:winuiJvmTest --tests 'org.jetbrains.skiko.winui.*' :skiko:winuiMingwTest --tests 'org.jetbrains.skiko.winui.WinUIMingwNativeBridgeSmokeTest' --no-configuration-cache --no-daemon --max-workers=1
 ```
 
-Formal publication remains blocked on the pinned stable kotlin-winrt 0.1.0:
-its toolkit plugin and runtime POMs returned HTTP 404 from Maven Central on
-2026-10-11. Unsigned SNAPSHOT-based artifacts are for rehearsal and downstream
-integration checks only.
+Maven Central now serves the kotlin-winrt `0.1.0` toolkit, runtime, authoring,
+and JVM/MinGW POMs (verified on 2026-10-11). The earlier unsigned SNAPSHOT-based
+artifacts remain suitable only for rehearsal and downstream integration checks.
 
 ## Prepare artifacts locally
 
@@ -211,10 +210,10 @@ After validation and review, commit the release source and configuration and tag
 that final commit:
 
 ```powershell
-git tag -a skiko-winui/v0.150.1-alpha01 -m 'skiko-winui 0.150.1-alpha01; based on Skiko 0.150.1'
+git tag -a skiko-winui/v0.150.1-alpha1 -m 'skiko-winui 0.150.1-alpha1; based on Skiko 0.150.1'
 python scripts/skiko_winui_release.py verify --fetch-upstream --for-publish
 git branch --show-current
-git push origin refs/tags/skiko-winui/v0.150.1-alpha01:refs/tags/skiko-winui/v0.150.1-alpha01
+git push origin refs/tags/skiko-winui/v0.150.1-alpha1:refs/tags/skiko-winui/v0.150.1-alpha1
 ```
 
 Verify the current branch and explicit destination before pushing. The workflow
