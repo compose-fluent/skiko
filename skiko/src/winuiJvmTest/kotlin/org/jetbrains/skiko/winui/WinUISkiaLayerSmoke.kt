@@ -156,6 +156,7 @@ private class SmokeSession(
             throw exception
         }
         println("skiko-winui-smoke: layer created")
+        verifyFrameCanvasIsolation(skiaLayer as WinUISkiaLayer)
         verifySkiaLayerSurfaceApi(skiaLayer)
         if (options.verifyInputHandler) {
             verifyInputHandlerApi(skiaLayer)

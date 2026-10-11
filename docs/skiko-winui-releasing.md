@@ -4,7 +4,7 @@
 version and upstream identity. This branch prepares the CMP WinUI 1.12.1 release:
 
 ```properties
-release.version=0.150.1-alpha1
+release.version=0.150.1-alpha02
 upstream.version=0.150.1
 upstream.tag=v0.150.1
 upstream.commit=3956e988e6e93eaf1ee985d725049443e7845807
@@ -45,7 +45,7 @@ upstream tag when selecting a different release baseline.
 - The release tag is derived as `skiko-winui/v<release.version>`. The namespace
   separates fork releases from imported upstream tags.
 - Prerelease numbers may use one or more digits, including the selected
-  `0.150.1-alpha1` version and older two-digit versions.
+  `0.150.1-alpha02` version and the earlier `0.150.1-alpha1` release.
 - Every WinUI POM records `skiko.upstream.version`, `skiko.upstream.tag`, and
   `skiko.upstream.commit`. Release POMs also record the fork release tag in SCM.
 - Windows native libraries and ICU data use the directory produced by
@@ -239,10 +239,10 @@ After validation and review, commit the release source and configuration and tag
 that final commit:
 
 ```powershell
-git tag -a skiko-winui/v0.150.1-alpha1 -m 'skiko-winui 0.150.1-alpha1; based on Skiko 0.150.1'
+git tag -a skiko-winui/v0.150.1-alpha02 -m 'skiko-winui 0.150.1-alpha02; based on Skiko 0.150.1'
 python scripts/skiko_winui_release.py verify --fetch-upstream --for-publish
 git branch --show-current
-git push origin refs/tags/skiko-winui/v0.150.1-alpha1:refs/tags/skiko-winui/v0.150.1-alpha1
+git push origin refs/tags/skiko-winui/v0.150.1-alpha02:refs/tags/skiko-winui/v0.150.1-alpha02
 ```
 
 Verify the current branch and explicit destination before pushing. The workflow

@@ -8,6 +8,7 @@ import microsoft.ui.xaml.SizeChangedEventHandler
 import microsoft.ui.xaml.Window
 import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.PixelGeometry
+import org.jetbrains.skia.runRestoringState
 import org.jetbrains.skiko.GraphicsApi
 import org.jetbrains.skiko.SkikoRenderDelegate
 import windows.foundation.EventRegistrationToken
@@ -376,12 +377,15 @@ class WinUISkiaLayer(
     internal fun renderInto(canvas: Canvas, nanoTime: Long) {
         check(!isDisposed) { "WinUISkiaLayer is disposed" }
         val scope = drawScope ?: throw IllegalStateException("WinUISkiaLayer.renderInto() is only valid inside native render.")
-        renderDelegate?.onRender(
-            canvas = canvas,
-            width = scope.width,
-            height = scope.height,
-            nanoTime = nanoTime,
-        )
+        // Swap-chain canvases are reused. Keep a delegate's transforms and clips within this frame.
+        canvas.runRestoringState {
+            renderDelegate?.onRender(
+                canvas = canvas,
+                width = scope.width,
+                height = scope.height,
+                nanoTime = nanoTime,
+            )
+        }
     }
 
     internal inline fun inDrawScope(
