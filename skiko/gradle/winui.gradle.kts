@@ -14,7 +14,7 @@ import java.security.MessageDigest
 
 buildscript {
     val kotlinWinRTVersion = providers.gradleProperty("kotlinWinRT.version")
-        .orElse("0.1.0-SNAPSHOT")
+        .orElse("0.1.0")
         .get()
     val kotlinWinRTGroup = providers.gradleProperty("kotlinWinRT.group")
         .orElse("io.github.compose-fluent")
@@ -175,7 +175,7 @@ val kotlinWinRTAuthoringScannerRuntime = configurations.detachedConfiguration(
     dependencies.create("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.4.0")
 )
 val kotlinWinRTArtifactVersion = providers.gradleProperty("kotlinWinRT.version")
-    .orElse("0.1.0-SNAPSHOT")
+    .orElse("0.1.0")
 val kotlinWinRTArtifactGroup = providers.gradleProperty("kotlinWinRT.group")
     .orElse("io.github.compose-fluent")
 val winuiProjectionTypes = listOf(
