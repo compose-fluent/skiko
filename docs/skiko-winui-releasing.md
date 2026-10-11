@@ -176,7 +176,9 @@ validation. The output under `skiko/build/release/<release.version>/` contains:
 
 - `skiko-winui-<release.version>-central.zip`
 - `release-manifest.json`, with upstream/fork commits and artifact/bundle SHA-256
-- `release-notes.md`, including `Based on Skiko <upstream.version>`
+- `release-notes.md`, copied verbatim from the optional
+  `docs/releases/skiko-winui-<release.version>.md`; otherwise the tool generates
+  notes with the upstream source mapping. GitHub Release uses this file as its body.
 
 Building these artifacts is not a runtime smoke test. Complete the appropriate
 JVM and MinGW runtime checks before publishing and describe any remaining

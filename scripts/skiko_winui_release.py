@@ -295,18 +295,21 @@ def bundle(root, release, repository, output, dry_run=False):
                       for name, data in sorted(files.items()) if not name.endswith((".asc", *HASH_SUFFIXES))],
     }
     (output / "release-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    (output / "release-notes.md").write_text(
+    notes_source = root / "docs/releases" / f"skiko-winui-{release.version}.md"
+    notes = (
         f"# skiko-winui {release.version}\n\n"
         f"Based on [Skiko {release.upstream_version}]({UPSTREAM}/tree/{release.upstream_tag}).\n\n"
         f"- Upstream commit: [{release.upstream_commit}]({UPSTREAM}/commit/{release.upstream_commit})\n"
         f"- Release commit: `{commit}`\n"
         f"- Backends packaged: `winui-jvm`, `winui-mingw` (`mingwX64`).\n"
         f"- Maven group: `{GROUP}`. All five artifacts use `{release.version}`.\n\n"
-        + (f"**Rehearsal only; not publishable.** Formal publication waits for kotlin-winrt "
-           f"`{release.kotlin_winrt_version}` and a fresh build using that version.\n\n" if dry_run else "") +
-        "The attached manifest records the source mapping and artifact checksums.\n",
-        encoding="utf-8",
+        "The attached manifest records the source mapping and artifact checksums.\n"
     )
+    if notes_source.is_file():
+        notes = notes_source.read_text(encoding="utf-8")
+    if dry_run:
+        notes = "**Rehearsal only; not publishable.**\n\n" + notes
+    (output / "release-notes.md").write_text(notes, encoding="utf-8")
     return archive
 
 

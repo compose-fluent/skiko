@@ -186,6 +186,21 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(release_tool.ReleaseError, "Missing publication"):
             self.bundle()
 
+    def test_versioned_release_notes_are_used_verbatim(self):
+        notes = "这是第一个 Skiko WinUI 版本，基于 Skiko 0.150.1。\n"
+        notes_source = self.root / "docs/releases" / f"skiko-winui-{self.release.version}.md"
+        notes_source.parent.mkdir(parents=True)
+        notes_source.write_text(notes, encoding="utf-8")
+        self.git("add", str(notes_source))
+        self.git("commit", "-m", "Add release notes")
+        self.git("tag", "-f", self.release.tag)
+        self.make_publications()
+        self.bundle()
+        self.assertEqual((self.output / "release-notes.md").read_text(encoding="utf-8"), notes)
+        release_tool.bundle(self.root, self.release, self.repository, self.output, dry_run=True)
+        self.assertEqual((self.output / "release-notes.md").read_text(encoding="utf-8"),
+                         "**Rehearsal only; not publishable.**\n\n" + notes)
+
     def test_rejects_unsigned_files(self):
         self.make_publications()
         next(self.artifact_directory("skiko-winui-jvm").glob("*.pom.asc")).unlink()
